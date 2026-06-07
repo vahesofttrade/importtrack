@@ -1228,13 +1228,50 @@ function filterSupplierDropdown(){
     </div>`;}).join('');
   dd.style.display='block';
 }
+// Country defaults: currency and shipping method
+const COUNTRY_DEFAULTS = {
+  'Russia':       { currency:'RUB', shiptype:'road' },
+  'China':        { currency:'USD', shiptype:'sea'  },
+  'Uzbekistan':   { currency:'USD', shiptype:'road' },
+  'UAE':          { currency:'USD', shiptype:'sea'  },
+  'Germany':      { currency:'EUR', shiptype:'road' },
+  'Turkey':       { currency:'USD', shiptype:'road' },
+  'Italy':        { currency:'EUR', shiptype:'road' },
+  'France':       { currency:'EUR', shiptype:'road' },
+  'Sweden':       { currency:'EUR', shiptype:'sea'  },
+  'USA':          { currency:'USD', shiptype:'sea'  },
+  'Japan':        { currency:'USD', shiptype:'sea'  },
+  'South Korea':  { currency:'USD', shiptype:'sea'  },
+  'India':        { currency:'USD', shiptype:'sea'  },
+  'Brazil':       { currency:'USD', shiptype:'sea'  },
+  'South Africa': { currency:'USD', shiptype:'sea'  },
+  'Malaysia':     { currency:'USD', shiptype:'sea'  },
+  'Saudi Arabia': { currency:'USD', shiptype:'sea'  },
+  'Austria':      { currency:'EUR', shiptype:'road' },
+  'Mexico':       { currency:'USD', shiptype:'road' },
+};
+
+function applyCountryDefaults(country){
+  const def=COUNTRY_DEFAULTS[country];
+  if(!def)return;
+  // Set shipping method
+  const shipEl=document.getElementById('f_shiptype');
+  if(shipEl)shipEl.value=def.shiptype;
+  // Set default currency for new items
+  const niCur=document.getElementById('ni_currency');
+  if(niCur)niCur.value=def.currency;
+}
+
 function selectSupplier(id){
   const s=allSuppliers.find(x=>x.id===id);
   if(!s)return;
   // Fill supplier name
   document.getElementById('f_supplier').value=s.name;
   // Auto-fill country
-  if(s.country)document.getElementById('f_country').value=s.country;
+  if(s.country){
+    document.getElementById('f_country').value=s.country;
+    applyCountryDefaults(s.country);
+  }
   // Auto-fill category
   if(s.category)document.getElementById('f_category').value=s.category;
   // Auto-fill payment term
