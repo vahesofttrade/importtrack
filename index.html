@@ -1096,19 +1096,17 @@ function removeOrderItem(idx){
 }
 
 function editOrderItem(idx){
-  // toggle edit mode for this item
   const view=document.getElementById('itemView_'+idx);
   const edit=document.getElementById('itemEdit_'+idx);
   if(!view||!edit)return;
-  const isEditing=edit.style.display!=='none';
-  if(isEditing){
-    // cancel — restore view
-    edit.style.display='none';
-    view.style.display='block';
-  } else {
-    edit.style.display='block';
-    view.style.display='none';
-  }
+  edit.style.display='block';
+  view.style.display='none';
+}
+function cancelItemEdit(idx){
+  const view=document.getElementById('itemView_'+idx);
+  const edit=document.getElementById('itemEdit_'+idx);
+  if(view)view.style.display='block';
+  if(edit)edit.style.display='none';
 }
 
 function recalcItem(idx){
@@ -1142,28 +1140,62 @@ function renderOrderItems(){
   if(!orderItems.length){
     el.innerHTML=`<div style="font-size:11px;color:var(--muted);padding:8px 0;text-align:center">No items yet — add products below</div>`;
     gtEl.style.display='none';
+    updatePaymentSummary();
     return;
   }
   const grandTotal=orderItems.reduce((s,i)=>s+(i.total_price||0),0);
-  el.innerHTML=orderItems.map((item,idx)=>`
-    <div class="order-item-row">
-      <button class="abtn item-del-btn" onclick="removeOrderItem(${idx})" style="color:var(--accent3)"><i class="ti ti-x"></i></button>
-      <div class="item-head">
-        <div class="item-product">${item.product_name}</div>
+  el.innerHTML=orderItems.map((item,i)=>{
+    const p=allProducts.find(x=>x.id===item.product_id);
+    const cat=allCategories.find(c=>c.id===p?.category_id);
+    const cv=p?.custom_values||{};
+    const specs=(cat?.custom_fields||[]).filter(f=>cv[f.key]).map(f=>`${f.label}: ${cv[f.key]}`).join(' · ');
+    return `<div class="order-item-row" style="position:relative;padding-top:14px">
+      <div style="position:absolute;top:8px;right:8px;display:flex;gap:4px">
+        <button class="abtn" onclick="editOrderItem(${i})" title="Edit" style="border-color:var(--accent4);color:var(--accent4)"><i class="ti ti-edit"></i></button>
+        <button class="abtn" onclick="removeOrderItem(${i})" title="Remove" style="border-color:var(--accent3);color:var(--accent3)"><i class="ti ti-x"></i></button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;padding-right:70px">
+        <div style="font-size:13px;font-weight:600;color:var(--text)">${item.product_name}</div>
         ${item.category?`<span class="item-cat">${item.category}</span>`:''}
-        ${(()=>{const p=allProducts.find(x=>x.id===item.product_id);const cat=allCategories.find(c=>c.id===p?.category_id);const cv=p?.custom_values||{};const specs=(cat?.custom_fields||[]).filter(f=>cv[f.key]).map(f=>`${f.label}: ${cv[f.key]}`).join(' · ');return specs?`<span style="font-size:10px;color:var(--muted)">${specs}</span>`:''})()}
+        ${specs?`<span style="font-size:10px;color:var(--muted)">${specs}</span>`:''}
       </div>
-      <div class="item-grid">
-        <div><div class="item-field-label">Quantity</div><div class="item-field-val">${item.qty.toLocaleString()} ${item.unit}</div></div>
-        <div><div class="item-field-label">Unit Price</div><div class="item-field-val">${item.currency} ${item.unit_price?Number(item.unit_price).toLocaleString():'—'}</div></div>
-        <div><div class="item-field-label">Total</div><div class="item-field-val item-total">${item.currency} ${item.total_price?Number(item.total_price).toLocaleString():'—'}</div></div>
-        ${item.notes?`<div><div class="item-field-label">Notes</div><div class="item-field-val" style="font-size:11px;color:var(--muted)">${item.notes}</div></div>`:'<div></div>'}
+      <div id="itemView_${i}">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
+          <div><div class="item-field-label">Quantity</div><div class="item-field-val">${Number(item.qty).toLocaleString()} ${item.unit}</div></div>
+          <div><div class="item-field-label">Unit Price</div><div class="item-field-val">${item.currency} ${item.unit_price?Number(item.unit_price).toLocaleString():'—'}</div></div>
+          <div><div class="item-field-label">Total</div><div class="item-field-val" style="color:var(--accent2)">${item.currency} ${item.total_price?Number(item.total_price).toLocaleString():'—'}</div></div>
+          <div><div class="item-field-label">Notes</div><div class="item-field-val" style="font-size:11px;color:var(--muted)">${item.notes||'—'}</div></div>
+        </div>
       </div>
-    </div>`).join('');
+      <div id="itemEdit_${i}" style="display:none;margin-top:8px;border-top:1px solid var(--border);padding-top:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+          <div class="fg"><div class="flabel">Quantity</div><input class="finput" id="ei_qty_${i}" type="number" value="${item.qty}" style="padding:5px 8px;font-size:12px" oninput="recalcItem(${i})"/></div>
+          <div class="fg"><div class="flabel">Unit</div>
+            <select class="fsel2" id="ei_unit_${i}" style="padding:5px 8px;font-size:12px">
+              ${['MT','KG','PCS','TON','ROLL','BOX','CBM','L'].map(u=>`<option ${item.unit===u?'selected':''}>${u}</option>`).join('')}
+            </select>
+          </div>
+          <div class="fg"><div class="flabel">Unit Price</div><input class="finput" id="ei_price_${i}" type="number" value="${item.unit_price||''}" style="padding:5px 8px;font-size:12px" oninput="recalcItem(${i})"/></div>
+          <div class="fg"><div class="flabel">Currency</div>
+            <select class="fsel2" id="ei_currency_${i}" style="padding:5px 8px;font-size:12px">
+              ${['USD','EUR','CNY','UZS','RUB'].map(c=>`<option ${item.currency===c?'selected':''}>${c}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-end">
+          <div class="fg" style="flex:1"><div class="flabel">Notes</div><input class="finput" id="ei_notes_${i}" value="${item.notes||''}" placeholder="Specs, grade..." style="padding:5px 8px;font-size:12px"/></div>
+          <div class="fg"><div class="flabel">Total</div><div class="finput" id="ei_total_${i}" style="background:var(--surface3);color:var(--accent2);font-weight:600;padding:5px 10px;font-size:12px;white-space:nowrap">${item.currency} ${Number(item.total_price||0).toLocaleString()}</div></div>
+          <button class="btn btn-primary" onclick="saveItemEdit(${i})" style="padding:6px 14px;font-size:11px"><i class="ti ti-check"></i>Save</button>
+          <button class="btn btn-ghost" onclick="cancelItemEdit(${i})" style="padding:6px 10px;font-size:11px">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
   gtEl.style.display='flex';
   document.getElementById('grandTotalVal').textContent='USD '+grandTotal.toLocaleString();
   updatePaymentSummary();
 }
+
 
 // ── SUPPLIER AUTOCOMPLETE ──
 function showSupplierDropdown(){
