@@ -1654,14 +1654,16 @@ async function loadProducts(){
     document.getElementById('addProductBtn').style.display='flex';
     document.getElementById('manageCatsBtn').style.display='flex';
   }
-  const[{data:cats},{data:prods},{data:psups}]=await Promise.all([
+  const[{data:cats},{data:prods},{data:psups},{data:sups}]=await Promise.all([
     sb.from('categories').select('*').order('name'),
     sb.from('products').select('*').order('name'),
-    sb.from('product_suppliers').select('*,suppliers(id,name,country,reliability,payment_term,credit_days_default)')
+    sb.from('product_suppliers').select('*,suppliers(id,name,country,reliability,payment_term,credit_days_default)'),
+    sb.from('suppliers').select('*').order('name')
   ]);
   allCategories=cats||[];
   allProducts=prods||[];
   allProductSuppliers=psups||[];
+  if(sups)allSuppliers=sups;
   renderCategoryTabs();
   document.getElementById('productsLoading').style.display='none';
   document.getElementById('prodGrid').style.display='grid';
@@ -1775,13 +1777,22 @@ function renderProducts(prods){
 }
 
 // ── PRODUCT MODAL ──
-function openProductModal(){
+async function openProductModal(){
   editProductId=null;pmLinkedSuppliers=[];pmSelectedSupId=null;pmSelectedSupName='';
   document.getElementById('productModalTitle').textContent='Add Product';
   ['pm_name','pm_hs_code','pm_description','pm_sup_search','pm_sup_price'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pm_unit').value='MT';
   document.getElementById('pm_sup_currency').value='USD';
   document.getElementById('pm_category_id').value='';
+  // Always reload suppliers and categories for modal
+  if(!allSuppliers.length){
+    const{data}=await sb.from('suppliers').select('*').order('name');
+    allSuppliers=data||[];
+  }
+  if(!allCategories.length){
+    const{data}=await sb.from('categories').select('*').order('name');
+    allCategories=data||[];
+  }
   populateCategorySelect();
   renderPmSupplierList();
   renderPmCustomFields(null);
