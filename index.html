@@ -234,6 +234,26 @@ tr:hover td{background:rgba(255,255,255,.02)}
 #supplierDropdown .sup-opt-meta{font-size:10px;color:var(--muted);margin-top:2px}
 #supplierDropdown .sup-opt-empty{padding:12px 14px;font-size:12px;color:var(--muted);text-align:center}
 
+/* PRODUCTS */
+.prod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.prod-card{background:var(--surface);border:1px solid var(--border2);border-radius:10px;overflow:hidden;transition:border-color .15s}
+.prod-card:hover{border-color:var(--border2)}
+.prod-card-head{padding:14px 16px;display:flex;align-items:flex-start;gap:12px;border-bottom:1px solid var(--border)}
+.prod-icon{width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.prod-name{font-size:13px;font-weight:600;color:var(--text)}
+.prod-meta{font-size:10px;color:var(--muted);margin-top:3px}
+.prod-body{padding:12px 16px}
+.prod-sup-list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.prod-sup-row{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)}
+.prod-sup-name{font-size:11px;color:var(--text);font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prod-sup-price{font-size:11px;color:var(--accent2);font-weight:500;white-space:nowrap}
+.prod-sup-date{font-size:10px;color:var(--muted);white-space:nowrap}
+.prod-footer{padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:8px}
+.prod-cat-badge{display:inline-block;font-size:9px;padding:2px 8px;border-radius:10px;font-weight:500;border:1px solid var(--border2);color:var(--muted);background:var(--surface2)}
+.prod-toolbar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.prod-search{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border2);border-radius:7px;padding:6px 12px;width:220px}
+.prod-search input{background:none;border:none;outline:none;color:var(--text);font-family:var(--fm);font-size:12px;width:100%}
+
 /* DOC CONTROLS */
 .doc-action-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
 .doc-action-bar .sep{flex:1}
@@ -302,6 +322,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <nav class="nav">
       <div class="nav-item active" onclick="showView('orders',this)"><i class="ti ti-package"></i>Orders<span class="nav-count" id="ordCount">0</span></div>
       <div class="nav-item" onclick="showView('suppliers',this)"><i class="ti ti-building-factory-2"></i>Suppliers</div>
+      <div class="nav-item" onclick="showView('products',this)"><i class="ti ti-box"></i>Products</div>
       <div class="nav-item" onclick="showView('documents',this)"><i class="ti ti-folders"></i>Documents</div>
       <div class="nav-item" onclick="showView('reports',this)"><i class="ti ti-chart-bar"></i>Reports</div>
       <div class="nav-item" onclick="showView('ai',this)"><i class="ti ti-sparkles"></i>AI Analysis<span class="nav-badge">AI</span></div>
@@ -386,6 +407,21 @@ tr:hover td{background:rgba(255,255,255,.02)}
         </div>
         <div class="loading" id="suppLoading"><div class="spin"></div>Loading suppliers...</div>
         <div class="sup-grid" id="supGrid" style="display:none"></div>
+      </div>
+
+      <!-- PRODUCTS -->
+      <div id="view-products" style="display:none">
+        <div class="prod-toolbar">
+          <div class="prod-search"><i class="ti ti-search"></i><input type="text" placeholder="Search products..." id="prodSearch" oninput="filterProducts()"/></div>
+          <select class="fsel" id="prodCatFilter" onchange="filterProducts()"><option value="">All Categories</option></select>
+          <div style="flex:1"></div>
+          <button class="btn btn-ghost" onclick="exportProducts()" style="font-size:11px"><i class="ti ti-download"></i>Export CSV</button>
+          <label class="btn btn-ghost" for="importProductsFile" style="font-size:11px;cursor:pointer"><i class="ti ti-upload"></i>Import CSV</label>
+          <input type="file" id="importProductsFile" accept=".csv" style="display:none" onchange="importProducts(this)"/>
+          <button class="btn btn-primary" id="addProductBtn" onclick="openProductModal()" style="display:none"><i class="ti ti-plus"></i>Add Product</button>
+        </div>
+        <div class="loading" id="productsLoading"><div class="spin"></div>Loading products...</div>
+        <div class="prod-grid" id="prodGrid" style="display:none"></div>
       </div>
 
       <!-- DOCUMENTS -->
@@ -531,6 +567,58 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveOrder()"><i class="ti ti-check"></i>Save to Supabase</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRODUCT MODAL -->
+<div class="modal-bg" id="productModalBg">
+  <div class="modal" style="width:620px">
+    <div class="modal-head">
+      <i class="ti ti-box" style="font-size:18px;color:var(--accent3)"></i>
+      <h3 id="productModalTitle">Add Product</h3>
+      <button class="abtn" onclick="closeProductModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="section-divider" style="border-top:none;margin-top:0;padding-top:0">Product Info</div>
+      <div class="form-row">
+        <div class="fg"><div class="flabel">Product Name</div><input class="finput" id="pm_name" placeholder="e.g. Steel Rods"/></div>
+        <div class="fg"><div class="flabel">Category</div><input class="finput" id="pm_category" placeholder="e.g. Metal"/></div>
+      </div>
+      <div class="form-row">
+        <div class="fg"><div class="flabel">Default Unit</div>
+          <select class="fsel2" id="pm_unit">
+            <option>MT</option><option>KG</option><option>PCS</option><option>L</option><option>CBM</option><option>TON</option>
+          </select>
+        </div>
+        <div class="fg"><div class="flabel">HS Code</div><input class="finput" id="pm_hs_code" placeholder="e.g. 7213.10"/></div>
+      </div>
+      <div class="form-row">
+        <div class="fg" style="grid-column:1/-1"><div class="flabel">Description</div><input class="finput" id="pm_description" placeholder="Product description, specifications..."/></div>
+      </div>
+
+      <div class="section-divider">Linked Suppliers & Prices</div>
+      <div id="pmSupplierList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
+      <div style="display:flex;gap:8px;align-items:flex-end" id="pmAddSupRow">
+        <div class="fg" style="flex:2;position:relative">
+          <div class="flabel">Add Supplier</div>
+          <input class="finput" id="pm_sup_search" placeholder="Search suppliers..." autocomplete="off" oninput="filterPmSuppliers()" onfocus="showPmSupDd()" onblur="setTimeout(hidePmSupDd,200)"/>
+          <div id="pmSupDd" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border2);border-radius:6px;z-index:100;max-height:180px;overflow-y:auto;margin-top:2px;box-shadow:0 8px 24px rgba(0,0,0,.4)"></div>
+        </div>
+        <div class="fg" style="flex:1">
+          <div class="flabel">Last Price (USD)</div>
+          <input class="finput" id="pm_sup_price" type="number" placeholder="0.00"/>
+        </div>
+        <div class="fg" style="flex:1">
+          <div class="flabel">Currency</div>
+          <select class="fsel2" id="pm_sup_currency"><option>USD</option><option>EUR</option><option>CNY</option><option>GBP</option><option>JPY</option></select>
+        </div>
+        <button class="btn btn-ghost" onclick="addSupplierToProduct()" style="flex-shrink:0;margin-bottom:1px"><i class="ti ti-plus"></i>Add</button>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeProductModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProduct()"><i class="ti ti-check"></i>Save Product</button>
     </div>
   </div>
 </div>
@@ -1497,6 +1585,251 @@ async function renameFolder(id,oldName){
   await loadDocs();
 }
 
+// ── PRODUCTS ──
+let allProducts=[], allProductSuppliers=[], pmLinkedSuppliers=[], editProductId=null;
+
+const catColors=['var(--accent)','var(--accent2)','var(--accent3)','var(--accent4)','var(--accent5)','#4af0f0','#f0c84a'];
+const catIcons={'Metal':'ti-bolt','Polymer':'ti-droplet','Chemical':'ti-flask','Wood':'ti-tree','Electrical':'ti-plug','Packaging':'ti-package','Food Grade':'ti-salad','Pigment':'ti-palette','default':'ti-box'};
+
+async function loadProducts(){
+  document.getElementById('productsLoading').style.display='flex';
+  document.getElementById('prodGrid').style.display='none';
+  if(isAdmin)document.getElementById('addProductBtn').style.display='flex';
+
+  const[{data:prods},{data:psups}]=await Promise.all([
+    sb.from('products').select('*').order('name'),
+    sb.from('product_suppliers').select('*,suppliers(name,country,reliability)')
+  ]);
+  allProducts=prods||[];
+  allProductSuppliers=psups||[];
+
+  // populate category filter
+  const cats=[...new Set(allProducts.map(p=>p.category).filter(Boolean))].sort();
+  const cf=document.getElementById('prodCatFilter');
+  cf.innerHTML='<option value="">All Categories</option>'+cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+
+  document.getElementById('productsLoading').style.display='none';
+  document.getElementById('prodGrid').style.display='grid';
+  filterProducts();
+}
+
+function filterProducts(){
+  const q=(document.getElementById('prodSearch')?.value||'').toLowerCase();
+  const cat=document.getElementById('prodCatFilter')?.value||'';
+  const filtered=allProducts.filter(p=>{
+    if(cat&&p.category!==cat)return false;
+    if(q&&!`${p.name}${p.category}${p.hs_code||''}${p.description||''}`.toLowerCase().includes(q))return false;
+    return true;
+  });
+  renderProducts(filtered);
+}
+
+function renderProducts(prods){
+  const grid=document.getElementById('prodGrid');
+  if(!prods.length){grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--muted);font-size:12px"><i class="ti ti-box" style="font-size:40px;display:block;margin-bottom:12px;color:var(--border2)"></i>No products yet.</div>`;return;}
+  grid.innerHTML=prods.map((p,i)=>{
+    const sups=allProductSuppliers.filter(ps=>ps.product_id===p.id);
+    const catColor=catColors[i%catColors.length];
+    const icon=catIcons[p.category]||catIcons.default;
+    const bestPrice=sups.length?Math.min(...sups.map(s=>s.last_price||Infinity)):null;
+    return `<div class="prod-card">
+      <div class="prod-card-head">
+        <div class="prod-icon" style="background:${catColor}22;color:${catColor}"><i class="ti ${icon}"></i></div>
+        <div style="flex:1;min-width:0">
+          <div class="prod-name">${p.name}</div>
+          <div class="prod-meta" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+            ${p.category?`<span class="prod-cat-badge">${p.category}</span>`:''}
+            ${p.unit?`<span class="prod-cat-badge" style="color:var(--accent4)">${p.unit}</span>`:''}
+            ${p.hs_code?`<span class="prod-cat-badge">HS: ${p.hs_code}</span>`:''}
+          </div>
+          ${p.description?`<div style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.4">${p.description}</div>`:''}
+        </div>
+        ${isAdmin?`<div style="display:flex;gap:4px;flex-shrink:0">
+          <button class="abtn" onclick="editProduct('${p.id}')" title="Edit"><i class="ti ti-edit"></i></button>
+          <button class="abtn" onclick="deleteProduct('${p.id}')" title="Delete" style="color:var(--accent3)"><i class="ti ti-trash"></i></button>
+        </div>`:''}
+      </div>
+      <div class="prod-body">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px">Suppliers (${sups.length})</div>
+          ${bestPrice&&bestPrice!==Infinity?`<div style="font-size:11px;color:var(--accent2)">Best: <strong>$${Number(bestPrice).toLocaleString()}</strong></div>`:''}
+        </div>
+        <div class="prod-sup-list">
+          ${sups.length?sups.map(ps=>`
+            <div class="prod-sup-row">
+              <div style="width:6px;height:6px;border-radius:50%;background:var(--accent2);flex-shrink:0"></div>
+              <div class="prod-sup-name">${flags[ps.suppliers?.country]||'🌐'} ${ps.suppliers?.name||'Unknown'}</div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+                ${ps.last_price?`<div class="prod-sup-price">$${Number(ps.last_price).toLocaleString()} <span style="font-size:9px;color:var(--muted)">${ps.currency||'USD'}</span></div>`:'<div style="font-size:10px;color:var(--muted)">No price</div>'}
+                ${ps.last_order_date?`<div class="prod-sup-date">${ps.last_order_date}</div>`:''}
+              </div>
+              ${isAdmin?`<button class="abtn" onclick="removeProductSupplier('${ps.id}')" title="Remove" style="color:var(--accent3);flex-shrink:0"><i class="ti ti-x"></i></button>`:''}
+            </div>`).join(''):`<div style="font-size:11px;color:var(--muted);padding:8px 0">No suppliers linked yet.</div>`}
+        </div>
+      </div>
+      <div class="prod-footer">
+        <button class="btn btn-ghost" style="flex:1;justify-content:center;font-size:11px" onclick="viewProductOrders('${p.name}')"><i class="ti ti-package"></i>View Orders</button>
+        ${isAdmin?`<button class="btn btn-ghost" style="font-size:11px" onclick="quickAddSupplier('${p.id}')"><i class="ti ti-plus"></i>Add Supplier</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── PRODUCT MODAL ──
+function openProductModal(){
+  editProductId=null;pmLinkedSuppliers=[];
+  document.getElementById('productModalTitle').textContent='Add Product';
+  ['pm_name','pm_category','pm_hs_code','pm_description','pm_sup_search','pm_sup_price'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('pm_unit').value='MT';
+  document.getElementById('pm_sup_currency').value='USD';
+  renderPmSupplierList();
+  document.getElementById('productModalBg').classList.add('open');
+}
+function closeProductModal(){document.getElementById('productModalBg').classList.remove('open');}
+
+async function editProduct(id){
+  const p=allProducts.find(x=>x.id===id);if(!p)return;
+  editProductId=id;
+  document.getElementById('productModalTitle').textContent='Edit — '+p.name;
+  document.getElementById('pm_name').value=p.name||'';
+  document.getElementById('pm_category').value=p.category||'';
+  document.getElementById('pm_unit').value=p.unit||'MT';
+  document.getElementById('pm_hs_code').value=p.hs_code||'';
+  document.getElementById('pm_description').value=p.description||'';
+  // load linked suppliers
+  pmLinkedSuppliers=allProductSuppliers.filter(ps=>ps.product_id===id).map(ps=>({
+    id:ps.id,supplier_id:ps.supplier_id,name:ps.suppliers?.name||'',
+    last_price:ps.last_price,currency:ps.currency||'USD',last_order_date:ps.last_order_date,saved:true
+  }));
+  renderPmSupplierList();
+  document.getElementById('productModalBg').classList.add('open');
+}
+
+async function saveProduct(){
+  const name=document.getElementById('pm_name').value.trim();
+  if(!name){toast('Product name required','err');return;}
+  const payload={name,category:document.getElementById('pm_category').value||null,unit:document.getElementById('pm_unit').value,hs_code:document.getElementById('pm_hs_code').value||null,description:document.getElementById('pm_description').value||null};
+  let prodId=editProductId;
+  if(editProductId){
+    await sb.from('products').update(payload).eq('id',editProductId);
+  } else {
+    const{data}=await sb.from('products').insert(payload).select().single();
+    prodId=data?.id;
+  }
+  // save new linked suppliers
+  for(const s of pmLinkedSuppliers.filter(x=>!x.saved)){
+    await sb.from('product_suppliers').upsert({product_id:prodId,supplier_id:s.supplier_id,last_price:s.last_price||null,currency:s.currency||'USD'},{onConflict:'product_id,supplier_id'});
+  }
+  toast(editProductId?'Product updated ✓':'Product saved ✓','ok');
+  closeProductModal();
+  loadProducts();
+}
+
+async function deleteProduct(id){
+  if(!confirm('Delete this product?'))return;
+  await sb.from('product_suppliers').delete().eq('product_id',id);
+  const{error}=await sb.from('products').delete().eq('id',id);
+  if(error){toast('Error: '+error.message,'err');return;}
+  toast('Product deleted','ok');loadProducts();
+}
+
+async function removeProductSupplier(psId){
+  if(!confirm('Remove this supplier link?'))return;
+  await sb.from('product_suppliers').delete().eq('id',psId);
+  toast('Supplier removed','ok');loadProducts();
+}
+
+// PM Supplier linking in modal
+let pmSelectedSupId=null,pmSelectedSupName='';
+function showPmSupDd(){filterPmSuppliers();document.getElementById('pmSupDd').style.display='block';}
+function hidePmSupDd(){document.getElementById('pmSupDd').style.display='none';}
+function filterPmSuppliers(){
+  const q=document.getElementById('pm_sup_search').value.toLowerCase();
+  const dd=document.getElementById('pmSupDd');
+  const already=pmLinkedSuppliers.map(s=>s.supplier_id);
+  const filtered=allSuppliers.filter(s=>!already.includes(s.id)&&(!q||s.name.toLowerCase().includes(q)||(s.country||'').toLowerCase().includes(q)));
+  if(!filtered.length){dd.innerHTML=`<div class="sup-opt-empty">No suppliers found</div>`;return;}
+  dd.innerHTML=filtered.map(s=>`<div class="sup-opt" onmousedown="selectPmSupplier('${s.id}','${s.name.replace(/'/g,"\'")}')">
+    <div class="sup-opt-name">${flags[s.country]||'🌐'} ${s.name}</div>
+    <div class="sup-opt-meta">${s.country||''} · ${s.category||''}</div>
+  </div>`).join('');
+}
+function selectPmSupplier(id,name){pmSelectedSupId=id;pmSelectedSupName=name;document.getElementById('pm_sup_search').value=name;hidePmSupDd();}
+function addSupplierToProduct(){
+  if(!pmSelectedSupId){toast('Select a supplier first','err');return;}
+  if(pmLinkedSuppliers.find(s=>s.supplier_id===pmSelectedSupId)){toast('Already added','err');return;}
+  pmLinkedSuppliers.push({supplier_id:pmSelectedSupId,name:pmSelectedSupName,last_price:parseFloat(document.getElementById('pm_sup_price').value)||null,currency:document.getElementById('pm_sup_currency').value,saved:false});
+  document.getElementById('pm_sup_search').value='';document.getElementById('pm_sup_price').value='';
+  pmSelectedSupId=null;pmSelectedSupName='';
+  renderPmSupplierList();
+}
+function removePmSupplier(idx){pmLinkedSuppliers.splice(idx,1);renderPmSupplierList();}
+function renderPmSupplierList(){
+  const el=document.getElementById('pmSupplierList');
+  if(!pmLinkedSuppliers.length){el.innerHTML=`<div style="font-size:11px;color:var(--muted);padding:4px 0">No suppliers linked yet.</div>`;return;}
+  el.innerHTML=pmLinkedSuppliers.map((s,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px">
+      <div style="flex:1;font-size:12px;font-weight:500">${flags[allSuppliers.find(x=>x.id===s.supplier_id)?.country]||'🌐'} ${s.name}</div>
+      ${s.last_price?`<div style="font-size:11px;color:var(--accent2)">$${Number(s.last_price).toLocaleString()} ${s.currency}</div>`:'<div style="font-size:10px;color:var(--muted)">No price</div>'}
+      <button class="abtn" onclick="removePmSupplier(${i})" style="color:var(--accent3)"><i class="ti ti-x"></i></button>
+    </div>`).join('');
+}
+
+function quickAddSupplier(productId){
+  editProductId=productId;
+  const p=allProducts.find(x=>x.id===productId);
+  if(p){document.getElementById('productModalTitle').textContent='Add Supplier to '+p.name;}
+  pmLinkedSuppliers=allProductSuppliers.filter(ps=>ps.product_id===productId).map(ps=>({id:ps.id,supplier_id:ps.supplier_id,name:ps.suppliers?.name||'',last_price:ps.last_price,currency:ps.currency||'USD',saved:true}));
+  renderPmSupplierList();
+  document.getElementById('productModalBg').classList.add('open');
+}
+
+function viewProductOrders(productName){
+  // Switch to orders view and filter by product name
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>{if(n.textContent.trim().startsWith('Orders'))n.classList.add('active');});
+  document.querySelectorAll('[id^="view-"]').forEach(d=>d.style.display='none');
+  document.getElementById('view-orders').style.display='block';
+  document.getElementById('statsRow').style.display='flex';
+  document.getElementById('filtersRow').style.display='flex';
+  document.getElementById('addBtn').style.display=isAdmin?'flex':'none';
+  document.getElementById('pageTitle').innerHTML='Order Board <span id="viewLabel">'+productName+'</span>';
+  document.getElementById('srch').value=productName;
+  searchTerm=productName;renderOrders();
+}
+
+// ── IMPORT / EXPORT PRODUCTS ──
+function exportProducts(){
+  const h=['Name','Category','Unit','HS Code','Description','Suppliers','Best Price USD'];
+  const rows=allProducts.map(p=>{
+    const sups=allProductSuppliers.filter(ps=>ps.product_id===p.id);
+    const supNames=sups.map(s=>s.suppliers?.name||'').join(' | ');
+    const bestPrice=sups.length?Math.min(...sups.map(s=>s.last_price||Infinity)):null;
+    return[p.name,p.category||'',p.unit||'',p.hs_code||'',p.description||'',supNames,bestPrice&&bestPrice!==Infinity?bestPrice:''];
+  });
+  const csv=[h,...rows].map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='products_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+  toast('Products exported ✓','ok');
+}
+
+async function importProducts(input){
+  const file=input.files[0];if(!file)return;
+  const text=await file.text();
+  const rows=text.split('\n').slice(1).filter(r=>r.trim());
+  let added=0,skipped=0;
+  for(const row of rows){
+    const cols=row.split(',').map(c=>c.replace(/^"|"$/g,'').trim());
+    const name=cols[0];if(!name)continue;
+    const existing=allProducts.find(p=>p.name.toLowerCase()===name.toLowerCase());
+    if(existing){skipped++;continue;}
+    const{error}=await sb.from('products').insert({name,category:cols[1]||null,unit:cols[2]||'MT',hs_code:cols[3]||null,description:cols[4]||null});
+    if(!error)added++;
+  }
+  toast(`Imported ${added} products${skipped?' ('+skipped+' skipped)':''}  ✓`,'ok');
+  input.value='';
+  loadProducts();
+}
+
 // ── REPORTS ──
 function renderReports(){
   if(!orders.length)return;
@@ -1579,6 +1912,7 @@ function showView(v,el){
   document.getElementById('statsRow').style.display=v==='orders'?'flex':'none';
   document.getElementById('filtersRow').style.display=v==='orders'?'flex':'none';
   document.getElementById('addBtn').style.display=(v==='orders'&&isAdmin)?'flex':'none';
+  if(v==='products')loadProducts();
   if(v==='suppliers')loadSuppliers();
   if(v==='documents'){docSubfolder=null;docGoRoot();loadDocs();}
   if(v==='reports')renderReports();
