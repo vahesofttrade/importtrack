@@ -526,8 +526,19 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="modal-head"><i class="ti ti-package" style="font-size:18px;color:var(--accent)"></i><h3 id="modalTitle">New Import Order</h3><button class="abtn" onclick="closeModal()"><i class="ti ti-x"></i></button></div>
     <div class="modal-body">
       <div class="form-row">
-        <div class="fg"><div class="flabel">Product Name</div><input class="finput" id="f_product" placeholder="e.g. Steel Rods"/></div>
-        <div class="fg"><div class="flabel">Category</div><input class="finput" id="f_category" placeholder="e.g. Metal"/></div>
+        <div class="fg" style="position:relative">
+          <div class="flabel">Product Name</div>
+          <input class="finput" id="f_product" placeholder="Type to search products..." autocomplete="off"
+            oninput="filterOrderProductDd()"
+            onfocus="filterOrderProductDd();document.getElementById('orderProductDd').style.display='block'"
+            onblur="setTimeout(()=>document.getElementById('orderProductDd').style.display='none',200)"/>
+          <div id="orderProductDd" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border2);border-radius:6px;z-index:100;max-height:200px;overflow-y:auto;margin-top:2px;box-shadow:0 8px 24px rgba(0,0,0,.4)"></div>
+        </div>
+        <div class="fg"><div class="flabel">Category</div>
+          <select class="fsel2" id="f_category">
+            <option value="">Select category...</option>
+          </select>
+        </div>
       </div>
       <div class="form-row">
         <div class="fg" style="position:relative">
@@ -636,7 +647,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
         </div>
         <div class="fg" style="flex:0.7">
           <div class="flabel">Currency</div>
-          <select class="fsel2" id="pm_sup_currency"><option>USD</option><option>EUR</option><option>CNY</option><option>GBP</option><option>JPY</option><option>UZS</option></select>
+          <select class="fsel2" id="pm_sup_currency"><option>USD</option><option>EUR</option><option>CNY</option><option>GBP</option><option>JPY</option><option>UZS</option><option>RUB</option></select>
         </div>
         <button class="btn btn-ghost" onclick="addSupplierToProduct()" style="flex-shrink:0;margin-bottom:1px"><i class="ti ti-plus"></i>Add</button>
       </div>
@@ -1015,19 +1026,58 @@ function sortOrders(val){
   [sortCol,sortDir]=map[val]||['id','desc'];renderOrders();
 }
 
-function openModal(){
+async function openModal(){
   editOrderId=null;
   document.getElementById('modalTitle').textContent='New Import Order';
-  ['f_product','f_category','f_supplier','f_country','f_qty','f_price','f_shipnum','f_delivery','f_notes','f_payment_due','f_credit_amount','f_credit_days','f_payment_notes'].forEach(id=>document.getElementById(id).value='');
+  ['f_product','f_supplier','f_country','f_qty','f_price','f_shipnum','f_delivery','f_notes','f_payment_due','f_credit_amount','f_credit_days','f_payment_notes'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('f_payment_status').value='pending';
   document.getElementById('creditFields').style.display='none';
-  // Load suppliers for autocomplete if not loaded yet
-  if(!allSuppliers.length) loadSuppliersForModal();
+  const promises=[];
+  if(!allSuppliers.length) promises.push(sb.from('suppliers').select('*').order('name').then(({data})=>{if(data)allSuppliers=data;}));
+  if(!allCategories.length) promises.push(sb.from('categories').select('*').order('name').then(({data})=>{if(data)allCategories=data;}));
+  if(!allProducts.length) promises.push(sb.from('products').select('*').order('name').then(({data})=>{if(data)allProducts=data;}));
+  await Promise.all(promises);
+  populateOrderCategorySelect();
   document.getElementById('modalBg').classList.add('open');
 }
-async function loadSuppliersForModal(){
-  const{data}=await sb.from('suppliers').select('*').order('name');
-  if(data)allSuppliers=data;
+
+function populateOrderCategorySelect(){
+  const sel=document.getElementById('f_category');
+  if(!sel)return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="">Select category...</option>'+allCategories.map(c=>`<option value="${c.name}">${c.name}</option>`).join('');
+  if(cur)sel.value=cur;
+}
+
+function filterOrderProductDd(){
+  const q=document.getElementById('f_product').value.toLowerCase();
+  const dd=document.getElementById('orderProductDd');
+  if(!q){dd.style.display='none';return;}
+  const filtered=allProducts.filter(p=>p.name.toLowerCase().includes(q)||(p.category||'').toLowerCase().includes(q));
+  if(!filtered.length){dd.innerHTML=`<div class="sup-opt-empty">No products found</div>`;dd.style.display='block';return;}
+  dd.innerHTML=filtered.slice(0,10).map(p=>{
+    const cat=allCategories.find(c=>c.id===p.category_id);
+    return `<div class="sup-opt" onmousedown="selectOrderProduct('${p.id}')">
+      <div class="sup-opt-name">${p.name}</div>
+      <div class="sup-opt-meta">${cat?.name||p.category||''} · ${p.unit||''}</div>
+    </div>`;}).join('');
+  dd.style.display='block';
+}
+
+function selectOrderProduct(id){
+  const p=allProducts.find(x=>x.id===id);if(!p)return;
+  document.getElementById('f_product').value=p.name;
+  document.getElementById('orderProductDd').style.display='none';
+  populateOrderCategorySelect();
+  const cat=allCategories.find(c=>c.id===p.category_id);
+  if(cat) document.getElementById('f_category').value=cat.name;
+  if(p.unit) document.getElementById('f_unit').value=p.unit;
+  // show cheapest supplier tip
+  const psups=(allProductSuppliers||[]).filter(ps=>ps.product_id===id&&ps.last_price);
+  if(psups.length){
+    const cheapest=psups.reduce((a,b)=>a.last_price<b.last_price?a:b);
+    toast('Best price: $'+Number(cheapest.last_price).toLocaleString()+' — '+cheapest.suppliers?.name,'ok');
+  }
 }
 function closeModal(){document.getElementById('modalBg').classList.remove('open');}
 
@@ -1045,8 +1095,9 @@ async function saveOrder(){
 function editOrd(id){
   const o=orders.find(x=>x.id===id);if(!o)return;
   editOrderId=id;document.getElementById('modalTitle').textContent='Edit Order — ORD-'+String(id).padStart(4,'0');
-  document.getElementById('f_product').value=o.product||'';document.getElementById('f_category').value=o.category||'';document.getElementById('f_supplier').value=o.supplier_name||'';document.getElementById('f_country').value=o.country||'';document.getElementById('f_qty').value=o.qty||'';document.getElementById('f_unit').value=o.unit||'MT';document.getElementById('f_price').value=o.price||'';document.getElementById('f_shiptype').value=o.shiptype||'sea';document.getElementById('f_shipnum').value=o.shipnum||'';document.getElementById('f_status').value=o.status||'ordered';document.getElementById('f_delivery').value=o.delivery||'';document.getElementById('f_notes').value=o.notes||'';
-  document.getElementById('f_payment_status').value=o.payment_status||'pending';
+  document.getElementById('f_product').value=o.product||'';document.getElementById('f_category').value=o.category||'';document.getElementById('f_supplier').value=o.supplier_name||'';document.getElementById('f_country').value=o.country||'';document.getElementById('f_qty').value=o.qty||'';document.getElementById('f_unit').value=o.unit||'MT';document.getElementById('f_price').value=o.price||'';document.getElementById('f_shiptype').value=o.shiptype||'sea';document.getElementById('f_shipnum').value=o.shipnum||'';document.getElementById('f_status').value=o.status||'ordered';document.getElementById('f_delivery').value=o.delivery||'';  document.getElementById('f_notes').value=o.notes||'';
+  populateOrderCategorySelect();
+  setTimeout(()=>{document.getElementById('f_category').value=o.category||'';},50); document.getElementById('f_payment_status').value=o.payment_status||'pending';
   document.getElementById('f_payment_due').value=o.payment_due_date||'';
   document.getElementById('f_credit_amount').value=o.credit_amount||'';
   document.getElementById('f_credit_days').value=o.credit_days||'';
@@ -1968,6 +2019,7 @@ function renderPmSupplierList(){
         <option ${s.currency==='EUR'?'selected':''}>EUR</option>
         <option ${s.currency==='CNY'?'selected':''}>CNY</option>
         <option ${s.currency==='UZS'?'selected':''}>UZS</option>
+        <option ${s.currency==='RUB'?'selected':''}>RUB</option>
       </select>
       <button class="abtn" onclick="removePmSupplier(${i})" style="color:var(--accent3)"><i class="ti ti-x"></i></button>
     </div>`).join('');
