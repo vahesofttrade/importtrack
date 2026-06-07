@@ -595,47 +595,56 @@ async function doSignup(){
 }
 async function doLogout(){await sb.auth.signOut();document.getElementById('mainApp').style.display='none';document.getElementById('authScreen').style.display='flex';orders=[];}
 
-sb.auth.onAuthStateChange(async(event,session)=>{
-  if(session?.user){
-    currentUser=session.user;
-    try{
-      await Promise.race([
-        loadProfile(),
-        new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')),5000))
-      ]);
-    }catch(e){
-      console.warn('loadProfile failed or timed out:',e);
-      isAdmin=false;
-      document.getElementById('avEl').textContent=currentUser.email.slice(0,2).toUpperCase();
-      document.getElementById('uName').textContent=currentUser.email;
-      document.getElementById('uRole').textContent='User';
-      document.getElementById('roleDot').style.background='var(--accent2)';
-      document.getElementById('roleLabel').textContent='User View';
-      document.getElementById('addBtn').style.display='none';
-      document.getElementById('usersNav').style.display='none';
+sb.auth.onAuthStateChange((event,session)=>{
+  if(event==='SIGNED_IN'||event==='INITIAL_SESSION'){
+    if(session?.user){
+      currentUser=session.user;
+      document.getElementById('authScreen').style.display='none';
+      document.getElementById('mainApp').style.display='flex';
+      // Set basic UI immediately — don't wait for profile
+      const em=currentUser.email||'';
+      document.getElementById('avEl').textContent=em.slice(0,2).toUpperCase();
+      document.getElementById('uName').textContent=em;
+      document.getElementById('uRole').textContent='Loading...';
+      // Load profile in background — never block UI
+      fetchProfile().then(()=>{
+        loadOrders();
+      });
     }
-    document.getElementById('authScreen').style.display='none';
-    document.getElementById('mainApp').style.display='flex';
-    loadOrders();
+  }
+  if(event==='SIGNED_OUT'){
+    document.getElementById('mainApp').style.display='none';
+    document.getElementById('authScreen').style.display='flex';
+    orders=[];
   }
 });
 
-async function loadProfile(){
-  let data=null;
+async function fetchProfile(){
   try{
-    const res=await sb.from('profiles').select('*').eq('id',currentUser.id).maybeSingle();
-    data=res.data;
-  }catch(e){console.warn('Profile error:',e);}
-  currentProfile=data;isAdmin=data?.role==='admin';
-  const name=data?.name||data?.full_name||currentUser.email;
-  const initials=name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-  document.getElementById('avEl').textContent=initials;
-  document.getElementById('uName').textContent=name;
-  document.getElementById('uRole').textContent=isAdmin?'Administrator':'User';
-  document.getElementById('roleDot').style.background=isAdmin?'var(--accent)':'var(--accent2)';
-  document.getElementById('roleLabel').textContent=isAdmin?'Admin Panel':'User View';
-  document.getElementById('addBtn').style.display=isAdmin?'flex':'none';
-  document.getElementById('usersNav').style.display=isAdmin?'flex':'none';
+    const ctrl=new AbortController();
+    const timer=setTimeout(()=>ctrl.abort(),4000);
+    const{data}=await sb.from('profiles').select('id,name,role').eq('id',currentUser.id).maybeSingle();
+    clearTimeout(timer);
+    currentProfile=data;
+    isAdmin=data?.role==='admin';
+    const name=data?.name||data?.full_name||currentUser.email;
+    const initials=name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    document.getElementById('avEl').textContent=initials;
+    document.getElementById('uName').textContent=name;
+    document.getElementById('uRole').textContent=isAdmin?'Administrator':'User';
+    document.getElementById('roleDot').style.background=isAdmin?'var(--accent)':'var(--accent2)';
+    document.getElementById('roleLabel').textContent=isAdmin?'Admin Panel':'User View';
+    document.getElementById('addBtn').style.display=isAdmin?'flex':'none';
+    document.getElementById('usersNav').style.display=isAdmin?'flex':'none';
+  }catch(e){
+    console.warn('Profile fetch failed:',e);
+    isAdmin=false;
+    document.getElementById('uRole').textContent='User';
+    document.getElementById('roleDot').style.background='var(--accent2)';
+    document.getElementById('roleLabel').textContent='User View';
+    document.getElementById('addBtn').style.display='none';
+    document.getElementById('usersNav').style.display='none';
+  }
 }
 
 // ── ORDERS ──
