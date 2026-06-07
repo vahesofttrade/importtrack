@@ -615,16 +615,48 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="section-divider">Payment</div>
       <div class="form-row">
         <div class="fg"><div class="flabel">Payment Status</div>
-          <select class="fsel2" id="f_payment_status" onchange="toggleCreditFields()">
-            <option value="pending">Pending</option><option value="paid">Paid</option>
-            <option value="credit">Credit</option><option value="partial">Partially Paid</option><option value="overdue">Overdue</option>
+          <select class="fsel2" id="f_payment_status" onchange="toggleCreditFields();updatePaymentSummary()">
+            <option value="pending">Pending</option>
+            <option value="paid">Fully Paid</option>
+            <option value="partial">Partially Paid</option>
+            <option value="credit">Credit</option>
+            <option value="overdue">Overdue</option>
           </select>
         </div>
-        <div class="fg"><div class="flabel">Payment Due Date</div><input class="finput" id="f_payment_due" type="date"/></div>
+        <div class="fg"><div class="flabel">Payment Due Date</div><input class="finput" id="f_payment_due" type="date" onchange="updatePaymentSummary()"/></div>
       </div>
+
+      <!-- Amount paid / remaining -->
+      <div class="form-row">
+        <div class="fg">
+          <div class="flabel">Amount Paid (USD)</div>
+          <input class="finput" id="f_amount_paid" type="number" placeholder="0.00" oninput="updatePaymentSummary()"/>
+        </div>
+        <div class="fg">
+          <div class="flabel">Remaining Balance</div>
+          <div class="finput" id="f_remaining" style="background:var(--surface3);color:var(--accent3);font-weight:600">—</div>
+        </div>
+      </div>
+
+      <!-- Payment summary bar -->
+      <div id="paymentSummaryBar" style="display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:12px 16px;margin-top:2px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:11px;color:var(--muted)">
+          <span>Payment Progress</span>
+          <span id="payPct" style="color:var(--accent2);font-weight:500">0%</span>
+        </div>
+        <div style="height:6px;background:var(--border2);border-radius:3px;overflow:hidden">
+          <div id="payProgressBar" style="height:100%;border-radius:3px;background:var(--accent2);width:0%;transition:width .4s ease"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px">
+          <div><div style="font-size:10px;color:var(--muted)">Order Total</div><div style="font-size:13px;font-weight:600;color:var(--text);margin-top:2px" id="payTotal">$0</div></div>
+          <div><div style="font-size:10px;color:var(--muted)">Paid</div><div style="font-size:13px;font-weight:600;color:var(--accent2);margin-top:2px" id="payPaid">$0</div></div>
+          <div><div style="font-size:10px;color:var(--muted)">Remaining</div><div style="font-size:13px;font-weight:600;color:var(--accent3);margin-top:2px" id="payRemaining">$0</div></div>
+        </div>
+      </div>
+
       <div id="creditFields" style="display:none">
         <div class="form-row">
-          <div class="fg"><div class="flabel">Credit Amount (USD)</div><input class="finput" id="f_credit_amount" type="number" placeholder="e.g. 50000"/></div>
+          <div class="fg"><div class="flabel">Credit Limit (USD)</div><input class="finput" id="f_credit_amount" type="number" placeholder="e.g. 50000"/></div>
           <div class="fg"><div class="flabel">Credit Days</div><input class="finput" id="f_credit_days" type="number" placeholder="e.g. 30"/></div>
         </div>
       </div>
@@ -1089,6 +1121,7 @@ function renderOrderItems(){
     </div>`).join('');
   gtEl.style.display='flex';
   document.getElementById('grandTotalVal').textContent='USD '+grandTotal.toLocaleString();
+  updatePaymentSummary();
 }
 
 // ── SUPPLIER AUTOCOMPLETE ──
@@ -1151,6 +1184,51 @@ function toggleCreditFields(){
   const ps=document.getElementById('f_payment_status')?.value;
   const cf=document.getElementById('creditFields');
   if(cf)cf.style.display=(ps==='credit')?'block':'none';
+  updatePaymentSummary();
+}
+
+function updatePaymentSummary(){
+  const paid=parseFloat(document.getElementById('f_amount_paid')?.value)||0;
+  const total=orderItems.reduce((s,i)=>s+(i.total_price||0),0);
+  const remaining=total-paid;
+  const pct=total>0?Math.min(100,Math.round(paid/total*100)):0;
+  const ps=document.getElementById('f_payment_status')?.value;
+
+  // update remaining field
+  const remEl=document.getElementById('f_remaining');
+  if(remEl){
+    if(total>0){
+      remEl.textContent='$'+Math.max(0,remaining).toLocaleString();
+      remEl.style.color=remaining<=0?'var(--accent2)':'var(--accent3)';
+    } else {
+      remEl.textContent='—';
+      remEl.style.color='var(--muted)';
+    }
+  }
+
+  // show/hide summary bar
+  const bar=document.getElementById('paymentSummaryBar');
+  if(bar){
+    bar.style.display=(total>0||paid>0)?'block':'none';
+    if(document.getElementById('payTotal')) document.getElementById('payTotal').textContent='$'+total.toLocaleString();
+    if(document.getElementById('payPaid')) document.getElementById('payPaid').textContent='$'+paid.toLocaleString();
+    if(document.getElementById('payRemaining')){
+      document.getElementById('payRemaining').textContent='$'+Math.max(0,remaining).toLocaleString();
+      document.getElementById('payRemaining').style.color=remaining<=0?'var(--accent2)':'var(--accent3)';
+    }
+    if(document.getElementById('payPct')) document.getElementById('payPct').textContent=pct+'%';
+    if(document.getElementById('payProgressBar')){
+      document.getElementById('payProgressBar').style.width=pct+'%';
+      document.getElementById('payProgressBar').style.background=pct>=100?'var(--accent2)':pct>=50?'var(--accent)':'var(--accent3)';
+    }
+  }
+
+  // auto-set status based on payment
+  const statusEl=document.getElementById('f_payment_status');
+  if(statusEl&&total>0){
+    if(paid>=total&&ps!=='credit') statusEl.value='paid';
+    else if(paid>0&&paid<total&&ps!=='credit') statusEl.value='partial';
+  }
 }
 function toggleSupCreditFields(){
   const pt=document.getElementById('sf_payment_term')?.value;
@@ -1166,6 +1244,16 @@ function renderPaymentCell(o){
   let html=`<span class="pay-badge ${classes[ps]||'pay-pending'}"><i class="ti ${icons[ps]||'ti-clock'}"></i>${labels[ps]||ps}</span>`;
   if(ps==='credit'&&o.credit_amount){
     html+=`<div class="credit-info">$${Number(o.credit_amount).toLocaleString()} · ${o.credit_days||0}d</div>`;
+  }
+  if(o.amount_paid>0&&o.price>0){
+    const pct=Math.min(100,Math.round(o.amount_paid/o.price*100));
+    const rem=o.price-o.amount_paid;
+    html+=`<div class="credit-info" style="margin-top:3px">
+      <div style="height:3px;background:var(--border2);border-radius:2px;overflow:hidden;margin-bottom:3px">
+        <div style="width:${pct}%;height:100%;background:${pct>=100?'var(--accent2)':pct>=50?'var(--accent)':'var(--accent3)'};border-radius:2px"></div>
+      </div>
+      ${pct>=100?'<span style="color:var(--accent2)">Fully paid</span>':`<span>Paid: $${Number(o.amount_paid).toLocaleString()}</span> · <span style="color:var(--accent3)">Due: $${Number(Math.max(0,rem)).toLocaleString()}</span>`}
+    </div>`;
   }
   if(ps==='pending'&&o.payment_due_date){
     const diff=Math.round((new Date(o.payment_due_date)-new Date())/86400000);
@@ -1204,6 +1292,9 @@ async function openModal(){
   document.getElementById('f_shiptype').value='sea';
   document.getElementById('f_payment_status').value='pending';
   document.getElementById('creditFields').style.display='none';
+  if(document.getElementById('f_amount_paid'))document.getElementById('f_amount_paid').value='';
+  if(document.getElementById('f_remaining'))document.getElementById('f_remaining').textContent='—';
+  if(document.getElementById('paymentSummaryBar'))document.getElementById('paymentSummaryBar').style.display='none';
   const promises=[];
   if(!allSuppliers.length) promises.push(sb.from('suppliers').select('*').order('name').then(({data})=>{if(data)allSuppliers=data;}));
   if(!allCategories.length) promises.push(sb.from('categories').select('*').order('name').then(({data})=>{if(data)allCategories=data;}));
@@ -1242,6 +1333,7 @@ async function saveOrder(){
     credit_amount:parseFloat(document.getElementById('f_credit_amount').value)||null,
     credit_days:parseInt(document.getElementById('f_credit_days').value)||null,
     payment_notes:document.getElementById('f_payment_notes').value||null,
+    amount_paid:parseFloat(document.getElementById('f_amount_paid')?.value)||0,
     items_count:orderItems.length,
     has_items:true,
     created_by:currentUser.id
@@ -1313,8 +1405,9 @@ async function editOrd(id){
   document.getElementById('f_payment_due').value=o.payment_due_date||'';
   document.getElementById('f_credit_amount').value=o.credit_amount||'';
   document.getElementById('f_credit_days').value=o.credit_days||'';
-  document.getElementById('f_payment_notes').value=o.payment_notes||'';
-  toggleCreditFields();
+    document.getElementById('f_payment_notes').value=o.payment_notes||'';
+  if(document.getElementById('f_amount_paid'))document.getElementById('f_amount_paid').value=o.amount_paid||'';
+  setTimeout(updatePaymentSummary,100); toggleCreditFields();
   // Load existing items
   const{data:items}=await sb.from('order_items').select('*').eq('order_id',id).order('created_at');
   if(items&&items.length){
