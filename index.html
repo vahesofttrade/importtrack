@@ -1234,7 +1234,9 @@ function renderFileCards(files){
 }
 
 async function uploadDocCore(file,supId,supName,orderId,orderRef,subfolder){
-  const path=`${supId||'general'}/${orderId||'general'}/${Date.now()}_${file.name}`;
+  // Sanitize filename — remove spaces and special chars for Supabase storage
+  const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+  const path=`${supId||'general'}/${orderId||'general'}/${Date.now()}_${safeName}`;
   const{error:upErr}=await sb.storage.from('documents').upload(path,file);
   if(upErr){toast('Upload error: '+upErr.message,'err');return;}
   const{error:dbErr}=await sb.from('documents').insert({
