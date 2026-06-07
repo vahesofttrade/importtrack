@@ -551,6 +551,25 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
       <div class="form-row">
         <div class="fg"><div class="flabel">Avg Lead Time (days)</div><input class="finput" id="sf_lead" type="number" placeholder="30"/></div>
+        <div class="fg"><div class="flabel">Default Payment Term</div>
+          <select class="fsel2" id="sf_payment_term" onchange="toggleSupCreditFields()">
+            <option value="pending">Pending / TBD</option>
+            <option value="paid">Cash / Prepaid</option>
+            <option value="credit">Credit</option>
+            <option value="partial">Partial Payment</option>
+            <option value="lc">Letter of Credit (LC)</option>
+            <option value="tt">Telegraphic Transfer (TT)</option>
+          </select>
+        </div>
+      </div>
+      <div id="supCreditFields" style="display:none">
+        <div class="form-row">
+          <div class="fg"><div class="flabel">Default Credit Amount (USD)</div><input class="finput" id="sf_credit_amount" type="number" placeholder="e.g. 50000"/></div>
+          <div class="fg"><div class="flabel">Default Credit Days</div><input class="finput" id="sf_credit_days" type="number" placeholder="e.g. 30"/></div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="fg" style="grid-column:1/-1"><div class="flabel">Payment Notes / Terms</div><input class="finput" id="sf_payment_notes" placeholder="e.g. Net 30, bank transfer, LC at sight..."/></div>
       </div>
 
       <div class="section-divider">Contact 1 — Main Contact</div>
@@ -768,11 +787,18 @@ function filterSupplierDropdown(){
     dd.innerHTML=`<div class="sup-opt-empty">No suppliers found</div>`;
     return;
   }
-  dd.innerHTML=filtered.map(s=>`
-    <div class="sup-opt" onmousedown="selectSupplier('${s.id}')">
-      <div class="sup-opt-name">${flags[s.country]||'🌐'} ${s.name}</div>
-      <div class="sup-opt-meta">${s.country||''} · ${s.category||''} · Lead: ${s.lead_time||'—'}d · Reliability: ${s.reliability||'—'}%</div>
-    </div>`).join('');
+  dd.innerHTML=filtered.map(s=>{
+    const ptLabel={'paid':'Cash','credit':'Credit','partial':'Partial','lc':'LC','tt':'TT','pending':'TBD'}[s.payment_term]||'TBD';
+    const ptColor={'paid':'var(--accent2)','credit':'var(--accent4)','partial':'var(--accent3)','lc':'var(--accent)','tt':'var(--accent)'}[s.payment_term]||'var(--muted)';
+    return`<div class="sup-opt" onmousedown="selectSupplier('${s.id}')">
+      <div class="sup-opt-name">${flags[s.country]||'🌐'} ${s.name} <span style="font-size:10px;color:var(--muted);font-weight:400">· ${s.category||'—'}</span></div>
+      <div class="sup-opt-meta" style="display:flex;gap:10px;align-items:center">
+        <span>${s.country||''}</span>
+        <span>Lead: ${s.lead_time||'—'}d</span>
+        <span>Reliability: ${s.reliability||'—'}%</span>
+        <span style="color:${ptColor};font-weight:500">${ptLabel}${s.credit_days_default?' · '+s.credit_days_default+'d':''}</span>
+      </div>
+    </div>`;}).join('');
   dd.style.display='block';
 }
 function selectSupplier(id){
@@ -782,18 +808,21 @@ function selectSupplier(id){
   document.getElementById('f_supplier').value=s.name;
   // Auto-fill country
   if(s.country)document.getElementById('f_country').value=s.country;
-  // Auto-fill contact in payment notes if has contact
-  if(s.contact1_name||s.contact1_email){
-    const existing=document.getElementById('f_payment_notes').value;
-    if(!existing){
-      const contact=[s.contact1_name,s.contact1_email,s.contact1_mobile].filter(Boolean).join(' · ');
-      document.getElementById('f_payment_notes').value=contact;
-    }
+  // Auto-fill category
+  if(s.category)document.getElementById('f_category').value=s.category;
+  // Auto-fill payment term
+  if(s.payment_term){
+    document.getElementById('f_payment_status').value=
+      s.payment_term==='lc'||s.payment_term==='tt'?'pending':s.payment_term;
+    toggleCreditFields();
   }
-  // Auto-fill credit days if supplier has typical lead time
-  if(s.lead_time&&!document.getElementById('f_credit_days').value){
-    document.getElementById('f_credit_days').value=s.lead_time;
-  }
+  // Auto-fill credit fields from supplier defaults
+  if(s.credit_days_default)document.getElementById('f_credit_days').value=s.credit_days_default;
+  if(s.credit_amount_default)document.getElementById('f_credit_amount').value=s.credit_amount_default;
+  // Auto-fill payment notes
+  if(s.payment_notes_default)document.getElementById('f_payment_notes').value=s.payment_notes_default;
+  else if(s.payment_term==='lc')document.getElementById('f_payment_notes').value='Letter of Credit';
+  else if(s.payment_term==='tt')document.getElementById('f_payment_notes').value='Telegraphic Transfer';
   hideSupplierDropdown();
 }
 
@@ -801,6 +830,11 @@ function toggleCreditFields(){
   const ps=document.getElementById('f_payment_status')?.value;
   const cf=document.getElementById('creditFields');
   if(cf)cf.style.display=(ps==='credit')?'block':'none';
+}
+function toggleSupCreditFields(){
+  const pt=document.getElementById('sf_payment_term')?.value;
+  const cf=document.getElementById('supCreditFields');
+  if(cf)cf.style.display=(pt==='credit'||pt==='partial')?'block':'none';
 }
 
 function renderPaymentCell(o){
@@ -966,6 +1000,15 @@ function renderSuppliers(){
           <div><div class="sup-stat-l">Category</div><div class="sup-stat-v" style="font-size:11px">${s.category||'—'}</div></div>
           <div><div class="sup-stat-l">Country</div><div class="sup-stat-v" style="font-size:11px">${s.country||'—'}</div></div>
         </div>
+        ${s.payment_term&&s.payment_term!=='pending'?`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Payment Terms</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span class="pay-badge ${{'paid':'pay-paid','credit':'pay-credit','partial':'pay-partial','lc':'pay-pending','tt':'pay-pending','pending':'pay-pending'}[s.payment_term]||'pay-pending'}">${{'paid':'Cash/Prepaid','credit':'Credit','partial':'Partial','lc':'LC','tt':'TT','pending':'TBD'}[s.payment_term]||s.payment_term}</span>
+            ${s.credit_days_default?`<span style="font-size:11px;color:var(--muted)">${s.credit_days_default}d</span>`:''}
+            ${s.credit_amount_default?`<span style="font-size:11px;color:var(--accent2)">$${Number(s.credit_amount_default).toLocaleString()}</span>`:''}
+          </div>
+          ${s.payment_notes_default?`<div style="font-size:10px;color:var(--muted);margin-top:4px">${s.payment_notes_default}</div>`:''}
+        </div>`:''}
         ${contactHTML}
       </div>
       <div class="sup-footer">
@@ -980,7 +1023,9 @@ function renderSuppliers(){
 function openSupModal(){
   editSupId=null;
   document.getElementById('supModalTitle').textContent='Add Supplier';
-  ['sf_name','sf_country','sf_cat','sf_rel','sf_lead','sf_c1name','sf_c1mobile','sf_c1email','sf_c2name','sf_c2mobile','sf_c2email','sf_c3name','sf_c3mobile','sf_c3email','sf_c4name','sf_c4mobile','sf_c4email'].forEach(id=>document.getElementById(id).value='');
+  ['sf_name','sf_country','sf_cat','sf_rel','sf_lead','sf_credit_amount','sf_credit_days','sf_payment_notes','sf_c1name','sf_c1mobile','sf_c1email','sf_c2name','sf_c2mobile','sf_c2email','sf_c3name','sf_c3mobile','sf_c3email','sf_c4name','sf_c4mobile','sf_c4email'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('sf_payment_term').value='pending';
+  document.getElementById('supCreditFields').style.display='none';
   document.getElementById('supModalBg').classList.add('open');
 }
 function closeSupModal(){document.getElementById('supModalBg').classList.remove('open');}
@@ -990,6 +1035,11 @@ function editSup(id){
   editSupId=id;
   document.getElementById('supModalTitle').textContent='Edit Supplier — '+s.name;
   document.getElementById('sf_name').value=s.name||'';document.getElementById('sf_country').value=s.country||'';document.getElementById('sf_cat').value=s.category||'';document.getElementById('sf_rel').value=s.reliability||'';document.getElementById('sf_lead').value=s.lead_time||'';
+  document.getElementById('sf_payment_term').value=s.payment_term||'pending';
+  document.getElementById('sf_credit_days').value=s.credit_days_default||'';
+  document.getElementById('sf_credit_amount').value=s.credit_amount_default||'';
+  document.getElementById('sf_payment_notes').value=s.payment_notes_default||'';
+  toggleSupCreditFields();
   document.getElementById('sf_c1name').value=s.contact1_name||'';document.getElementById('sf_c1mobile').value=s.contact1_mobile||'';document.getElementById('sf_c1email').value=s.contact1_email||'';
   document.getElementById('sf_c2name').value=s.contact2_name||'';document.getElementById('sf_c2mobile').value=s.contact2_mobile||'';document.getElementById('sf_c2email').value=s.contact2_email||'';
   document.getElementById('sf_c3name').value=s.contact3_name||'';document.getElementById('sf_c3mobile').value=s.contact3_mobile||'';document.getElementById('sf_c3email').value=s.contact3_email||'';
@@ -1003,6 +1053,10 @@ async function saveSupplier(){
   const payload={
     name,country:document.getElementById('sf_country').value||'Unknown',category:document.getElementById('sf_cat').value||'General',
     reliability:parseInt(document.getElementById('sf_rel').value)||80,lead_time:parseInt(document.getElementById('sf_lead').value)||30,
+    payment_term:document.getElementById('sf_payment_term').value||'pending',
+    credit_days_default:parseInt(document.getElementById('sf_credit_days').value)||null,
+    credit_amount_default:parseFloat(document.getElementById('sf_credit_amount').value)||null,
+    payment_notes_default:document.getElementById('sf_payment_notes').value||null,
     contact1_name:document.getElementById('sf_c1name').value||null,contact1_mobile:document.getElementById('sf_c1mobile').value||null,contact1_email:document.getElementById('sf_c1email').value||null,
     contact2_name:document.getElementById('sf_c2name').value||null,contact2_mobile:document.getElementById('sf_c2mobile').value||null,contact2_email:document.getElementById('sf_c2email').value||null,
     contact3_name:document.getElementById('sf_c3name').value||null,contact3_mobile:document.getElementById('sf_c3mobile').value||null,contact3_email:document.getElementById('sf_c3email').value||null,
