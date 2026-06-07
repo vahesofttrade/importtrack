@@ -1095,6 +1095,47 @@ function removeOrderItem(idx){
   renderOrderItems();
 }
 
+function editOrderItem(idx){
+  // toggle edit mode for this item
+  const view=document.getElementById('itemView_'+idx);
+  const edit=document.getElementById('itemEdit_'+idx);
+  if(!view||!edit)return;
+  const isEditing=edit.style.display!=='none';
+  if(isEditing){
+    // cancel — restore view
+    edit.style.display='none';
+    view.style.display='block';
+  } else {
+    edit.style.display='block';
+    view.style.display='none';
+  }
+}
+
+function recalcItem(idx){
+  const qty=parseFloat(document.getElementById('ei_qty_'+idx)?.value)||0;
+  const price=parseFloat(document.getElementById('ei_price_'+idx)?.value)||0;
+  const cur=document.getElementById('ei_currency_'+idx)?.value||'USD';
+  const total=qty*price;
+  const el=document.getElementById('ei_total_'+idx);
+  if(el)el.textContent=cur+' '+total.toLocaleString();
+}
+
+function saveItemEdit(idx){
+  const qty=parseFloat(document.getElementById('ei_qty_'+idx)?.value)||0;
+  const unitPrice=parseFloat(document.getElementById('ei_price_'+idx)?.value)||0;
+  const unit=document.getElementById('ei_unit_'+idx)?.value||'MT';
+  const currency=document.getElementById('ei_currency_'+idx)?.value||'USD';
+  const notes=document.getElementById('ei_notes_'+idx)?.value||'';
+  orderItems[idx]={
+    ...orderItems[idx],
+    qty,unit,unit_price:unitPrice,
+    total_price:qty*unitPrice,
+    currency,notes
+  };
+  renderOrderItems();
+  toast('Item updated ✓','ok');
+}
+
 function renderOrderItems(){
   const el=document.getElementById('orderItemsList');
   const gtEl=document.getElementById('orderGrandTotal');
