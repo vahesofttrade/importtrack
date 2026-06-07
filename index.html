@@ -237,6 +237,15 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .doc-card-wrap:hover .doc-menu{display:flex}
 .rename-input{background:var(--surface2);border:1px solid var(--accent);border-radius:4px;padding:3px 7px;color:var(--text);font-family:var(--fm);font-size:11px;outline:none;width:100%;margin-top:4px}
 
+/* PAYMENT BADGES */
+.pay-badge{padding:3px 9px;border-radius:4px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.6px;white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+.pay-paid{background:rgba(74,240,184,.1);color:var(--accent2);border:1px solid rgba(74,240,184,.2)}
+.pay-credit{background:rgba(160,74,240,.1);color:var(--accent4);border:1px solid rgba(160,74,240,.2)}
+.pay-pending{background:rgba(200,240,74,.1);color:var(--accent);border:1px solid rgba(200,240,74,.2)}
+.pay-overdue{background:rgba(240,74,74,.1);color:#f04a4a;border:1px solid rgba(240,74,74,.2)}
+.pay-partial{background:rgba(240,130,74,.1);color:var(--accent3);border:1px solid rgba(240,130,74,.2)}
+.credit-info{font-size:10px;color:var(--muted);margin-top:2px}
+
 /* TOAST */
 .toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:12px 16px;font-size:12px;z-index:999;display:flex;align-items:center;gap:8px;transform:translateY(80px);opacity:0;transition:all .3s}
 .toast.show{transform:translateY(0);opacity:1}
@@ -351,6 +360,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
             <th>Shipment</th>
             <th onclick="sortByCol('status')">Status<span class="sort-icon">↕</span></th>
             <th onclick="sortByCol('delivery')">Delivery<span class="sort-icon">↕</span></th>
+            <th onclick="sortByCol('payment_status')">Payment<span class="sort-icon">↕</span></th>
             <th></th>
           </tr></thead>
           <tbody id="orderTBody"></tbody>
@@ -482,6 +492,28 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="form-row">
         <div class="fg"><div class="flabel">Status</div><select class="fsel2" id="f_status"><option value="ordered">Ordered</option><option value="transit">In Transit</option><option value="customs">Customs Hold</option><option value="delivered">Delivered</option><option value="delayed">Delayed</option></select></div>
         <div class="fg"><div class="flabel">Notes</div><input class="finput" id="f_notes" placeholder="Optional notes"/></div>
+      </div>
+      <div class="section-divider">Payment</div>
+      <div class="form-row">
+        <div class="fg"><div class="flabel">Payment Status</div>
+          <select class="fsel2" id="f_payment_status" onchange="toggleCreditFields()">
+            <option value="pending">Pending</option>
+            <option value="paid">Paid</option>
+            <option value="credit">Credit</option>
+            <option value="partial">Partially Paid</option>
+            <option value="overdue">Overdue</option>
+          </select>
+        </div>
+        <div class="fg"><div class="flabel">Payment Due Date</div><input class="finput" id="f_payment_due" type="date"/></div>
+      </div>
+      <div id="creditFields" style="display:none">
+        <div class="form-row">
+          <div class="fg"><div class="flabel">Credit Amount (USD)</div><input class="finput" id="f_credit_amount" type="number" placeholder="e.g. 50000"/></div>
+          <div class="fg"><div class="flabel">Credit Days</div><input class="finput" id="f_credit_days" type="number" placeholder="e.g. 30"/></div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="fg" style="grid-column:1/-1"><div class="flabel">Payment Notes</div><input class="finput" id="f_payment_notes" placeholder="e.g. Net 30, bank transfer, LC..."/></div>
       </div>
     </div>
     <div class="modal-foot">
@@ -699,11 +731,39 @@ function renderOrders(){
     <td><div class="snum">${o.shipnum||''}</div><span class="stype ship-${o.shiptype}"><i class="ti ${stIcon[o.shiptype]||'ti-package'}"></i>${stLabel[o.shiptype]||o.shiptype||''}</span></td>
     <td><span class="sbadge s-${o.status}">${o.status==='transit'?'<span class="pulse" aria-hidden="true"></span>':''}${sLabel[o.status]||o.status}</span></td>
     <td><div class="date-v">${o.delivery||''}</div>${o.status!=='delivered'&&o.delivery?daysLeft(o.delivery):'<span class="date-d" style="color:var(--accent2)">Completed ✓</span>'}</td>
+    <td>${renderPaymentCell(o)}</td>
     <td><div class="acts">
       ${isAdmin?`<button class="abtn" onclick="editOrd(${o.id})" title="Edit"><i class="ti ti-edit"></i></button>`:''}
       ${isAdmin?`<button class="abtn" onclick="delOrd(${o.id})" title="Delete" style="color:var(--accent3)"><i class="ti ti-trash"></i></button>`:''}
     </div></td>
   </tr>`).join('');
+}
+
+function toggleCreditFields(){
+  const ps=document.getElementById('f_payment_status')?.value;
+  const cf=document.getElementById('creditFields');
+  if(cf)cf.style.display=(ps==='credit')?'block':'none';
+}
+
+function renderPaymentCell(o){
+  const ps=o.payment_status||'pending';
+  const classes={paid:'pay-paid',credit:'pay-credit',pending:'pay-pending',overdue:'pay-overdue',partial:'pay-partial'};
+  const labels={paid:'Paid',credit:'Credit',pending:'Pending',overdue:'Overdue',partial:'Partial'};
+  const icons={paid:'ti-circle-check',credit:'ti-calendar-due',pending:'ti-clock',overdue:'ti-alert-triangle',partial:'ti-adjustments'};
+  let html=`<span class="pay-badge ${classes[ps]||'pay-pending'}"><i class="ti ${icons[ps]||'ti-clock'}"></i>${labels[ps]||ps}</span>`;
+  if(ps==='credit'&&o.credit_amount){
+    html+=`<div class="credit-info">$${Number(o.credit_amount).toLocaleString()} · ${o.credit_days||0}d</div>`;
+  }
+  if(ps==='pending'&&o.payment_due_date){
+    const diff=Math.round((new Date(o.payment_due_date)-new Date())/86400000);
+    if(diff<0)html+=`<div class="credit-info date-late">${Math.abs(diff)}d overdue</div>`;
+    else if(diff<=7)html+=`<div class="credit-info" style="color:var(--accent3)">Due in ${diff}d</div>`;
+    else html+=`<div class="credit-info">Due ${o.payment_due_date}</div>`;
+  }
+  if(o.payment_notes){
+    html+=`<div class="credit-info">${o.payment_notes}</div>`;
+  }
+  return html;
 }
 
 function sortByCol(col){
@@ -720,13 +780,13 @@ function sortOrders(val){
   [sortCol,sortDir]=map[val]||['id','desc'];renderOrders();
 }
 
-function openModal(){editOrderId=null;document.getElementById('modalTitle').textContent='New Import Order';['f_product','f_category','f_supplier','f_country','f_qty','f_price','f_shipnum','f_delivery','f_notes'].forEach(id=>document.getElementById(id).value='');document.getElementById('modalBg').classList.add('open');}
+function openModal(){editOrderId=null;document.getElementById('modalTitle').textContent='New Import Order';['f_product','f_category','f_supplier','f_country','f_qty','f_price','f_shipnum','f_delivery','f_notes','f_payment_due','f_credit_amount','f_credit_days','f_payment_notes'].forEach(id=>document.getElementById(id).value='');document.getElementById('f_payment_status').value='pending';document.getElementById('creditFields').style.display='none';document.getElementById('modalBg').classList.add('open');}
 function closeModal(){document.getElementById('modalBg').classList.remove('open');}
 
 async function saveOrder(){
   const product=document.getElementById('f_product').value.trim();
   if(!product){toast('Product name required','err');return;}
-  const payload={product,category:document.getElementById('f_category').value||'General',supplier_name:document.getElementById('f_supplier').value||'Unknown',country:document.getElementById('f_country').value||'Unknown',qty:parseFloat(document.getElementById('f_qty').value)||0,unit:document.getElementById('f_unit').value,price:parseFloat(document.getElementById('f_price').value)||0,shiptype:document.getElementById('f_shiptype').value,shipnum:document.getElementById('f_shipnum').value||'TBD',status:document.getElementById('f_status').value,delivery:document.getElementById('f_delivery').value||null,notes:document.getElementById('f_notes').value,created_by:currentUser.id};
+  const payload={product,category:document.getElementById('f_category').value||'General',supplier_name:document.getElementById('f_supplier').value||'Unknown',country:document.getElementById('f_country').value||'Unknown',qty:parseFloat(document.getElementById('f_qty').value)||0,unit:document.getElementById('f_unit').value,price:parseFloat(document.getElementById('f_price').value)||0,shiptype:document.getElementById('f_shiptype').value,shipnum:document.getElementById('f_shipnum').value||'TBD',status:document.getElementById('f_status').value,delivery:document.getElementById('f_delivery').value||null,notes:document.getElementById('f_notes').value,payment_status:document.getElementById('f_payment_status').value||'pending',payment_due_date:document.getElementById('f_payment_due').value||null,credit_amount:parseFloat(document.getElementById('f_credit_amount').value)||null,credit_days:parseInt(document.getElementById('f_credit_days').value)||null,payment_notes:document.getElementById('f_payment_notes').value||null,created_by:currentUser.id};
   let error;
   if(editOrderId)({error}=await sb.from('orders').update(payload).eq('id',editOrderId));
   else({error}=await sb.from('orders').insert(payload));
@@ -738,6 +798,12 @@ function editOrd(id){
   const o=orders.find(x=>x.id===id);if(!o)return;
   editOrderId=id;document.getElementById('modalTitle').textContent='Edit Order — ORD-'+String(id).padStart(4,'0');
   document.getElementById('f_product').value=o.product||'';document.getElementById('f_category').value=o.category||'';document.getElementById('f_supplier').value=o.supplier_name||'';document.getElementById('f_country').value=o.country||'';document.getElementById('f_qty').value=o.qty||'';document.getElementById('f_unit').value=o.unit||'MT';document.getElementById('f_price').value=o.price||'';document.getElementById('f_shiptype').value=o.shiptype||'sea';document.getElementById('f_shipnum').value=o.shipnum||'';document.getElementById('f_status').value=o.status||'ordered';document.getElementById('f_delivery').value=o.delivery||'';document.getElementById('f_notes').value=o.notes||'';
+  document.getElementById('f_payment_status').value=o.payment_status||'pending';
+  document.getElementById('f_payment_due').value=o.payment_due_date||'';
+  document.getElementById('f_credit_amount').value=o.credit_amount||'';
+  document.getElementById('f_credit_days').value=o.credit_days||'';
+  document.getElementById('f_payment_notes').value=o.payment_notes||'';
+  toggleCreditFields();
   document.getElementById('modalBg').classList.add('open');
 }
 async function delOrd(id){
