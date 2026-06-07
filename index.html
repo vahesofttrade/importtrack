@@ -981,12 +981,18 @@ function filterNewItemDd(){
     const cat=allCategories.find(c=>c.id===p.category_id);
     const sups=allProductSuppliers.filter(ps=>ps.product_id===p.id&&ps.last_price);
     const bestPrice=sups.length?Math.min(...sups.map(s=>s.last_price)):null;
+    const cv=p.custom_values||{};
+    const fields=cat?.custom_fields||[];
+    const specStr=fields.filter(f=>cv[f.key]).map(f=>`${f.label}: ${cv[f.key]}`).join(' · ');
     return `<div class="sup-opt" onmousedown="selectNewItem('${p.id}')">
-      <div class="sup-opt-name">${p.name}</div>
-      <div class="sup-opt-meta" style="display:flex;gap:8px">
-        <span>${cat?.name||p.category||''}</span>
-        <span>${p.unit||''}</span>
-        ${bestPrice?`<span style="color:var(--accent2)">Best: $${Number(bestPrice).toLocaleString()}</span>`:''}
+      <div class="sup-opt-name" style="display:flex;align-items:center;gap:8px">
+        ${p.name}
+        ${bestPrice?`<span style="color:var(--accent2);font-size:10px;font-weight:400">$${Number(bestPrice).toLocaleString()}</span>`:''}
+      </div>
+      <div class="sup-opt-meta">
+        <span style="color:${cat?.color||'var(--muted)'}">${cat?.name||p.category||''}</span>
+        ${p.unit?` · ${p.unit}`:''}
+        ${specStr?` · <span style="color:var(--accent)">${specStr}</span>`:''}
       </div>
     </div>`;}).join('');
   dd.style.display='block';
@@ -1072,6 +1078,7 @@ function renderOrderItems(){
       <div class="item-head">
         <div class="item-product">${item.product_name}</div>
         ${item.category?`<span class="item-cat">${item.category}</span>`:''}
+        ${(()=>{const p=allProducts.find(x=>x.id===item.product_id);const cat=allCategories.find(c=>c.id===p?.category_id);const cv=p?.custom_values||{};const specs=(cat?.custom_fields||[]).filter(f=>cv[f.key]).map(f=>`${f.label}: ${cv[f.key]}`).join(' · ');return specs?`<span style="font-size:10px;color:var(--muted)">${specs}</span>`:''})()}
       </div>
       <div class="item-grid">
         <div><div class="item-field-label">Quantity</div><div class="item-field-val">${item.qty.toLocaleString()} ${item.unit}</div></div>
@@ -1201,6 +1208,7 @@ async function openModal(){
   if(!allSuppliers.length) promises.push(sb.from('suppliers').select('*').order('name').then(({data})=>{if(data)allSuppliers=data;}));
   if(!allCategories.length) promises.push(sb.from('categories').select('*').order('name').then(({data})=>{if(data)allCategories=data;}));
   if(!allProducts.length) promises.push(sb.from('products').select('*').order('name').then(({data})=>{if(data)allProducts=data;}));
+  if(!allProductSuppliers.length) promises.push(sb.from('product_suppliers').select('*,suppliers(id,name,country)').then(({data})=>{if(data)allProductSuppliers=data;}));
   await Promise.all(promises);
   renderOrderItems();
   document.getElementById('modalBg').classList.add('open');
