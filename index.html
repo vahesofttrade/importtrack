@@ -409,22 +409,34 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="sup-grid" id="supGrid" style="display:none"></div>
       </div>
 
-      <!-- PRODUCTS -->
+            <!-- PRODUCTS -->
       <div id="view-products" style="display:none">
+        <!-- Category tabs -->
+        <div id="catTabs" style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:12px"></div>
         <div class="prod-toolbar">
           <div class="prod-search"><i class="ti ti-search"></i><input type="text" placeholder="Search products..." id="prodSearch" oninput="filterProducts()"/></div>
-          <select class="fsel" id="prodCatFilter" onchange="filterProducts()"><option value="">All Categories</option></select>
           <div style="flex:1"></div>
           <button class="btn btn-ghost" onclick="exportProducts()" style="font-size:11px"><i class="ti ti-download"></i>Export CSV</button>
           <label class="btn btn-ghost" for="importProductsFile" style="font-size:11px;cursor:pointer"><i class="ti ti-upload"></i>Import CSV</label>
           <input type="file" id="importProductsFile" accept=".csv" style="display:none" onchange="importProducts(this)"/>
+          <button class="btn btn-ghost" id="manageCatsBtn" onclick="showView('categories',this)" style="display:none;font-size:11px"><i class="ti ti-category"></i>Categories</button>
           <button class="btn btn-primary" id="addProductBtn" onclick="openProductModal()" style="display:none"><i class="ti ti-plus"></i>Add Product</button>
         </div>
         <div class="loading" id="productsLoading"><div class="spin"></div>Loading products...</div>
         <div class="prod-grid" id="prodGrid" style="display:none"></div>
       </div>
 
-      <!-- DOCUMENTS -->
+      <!-- CATEGORIES (admin only) -->
+      <div id="view-categories" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <button class="btn btn-ghost" onclick="showView('products',document.querySelector('.nav-item.active'))"><i class="ti ti-arrow-left"></i>Back to Products</button>
+          <button class="btn btn-primary" onclick="openCatModal()"><i class="ti ti-plus"></i>Add Category</button>
+        </div>
+        <div class="loading" id="catsLoading"><div class="spin"></div>Loading categories...</div>
+        <div id="catsGrid" style="display:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px"></div>
+      </div>
+
+<!-- DOCUMENTS -->
       <div id="view-documents" style="display:none">
         <!-- Toolbar -->
         <div class="doc-toolbar">
@@ -573,7 +585,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
 <!-- PRODUCT MODAL -->
 <div class="modal-bg" id="productModalBg">
-  <div class="modal" style="width:620px">
+  <div class="modal" style="width:660px">
     <div class="modal-head">
       <i class="ti ti-box" style="font-size:18px;color:var(--accent3)"></i>
       <h3 id="productModalTitle">Add Product</h3>
@@ -582,36 +594,49 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="modal-body">
       <div class="section-divider" style="border-top:none;margin-top:0;padding-top:0">Product Info</div>
       <div class="form-row">
-        <div class="fg"><div class="flabel">Product Name</div><input class="finput" id="pm_name" placeholder="e.g. Steel Rods"/></div>
-        <div class="fg"><div class="flabel">Category</div><input class="finput" id="pm_category" placeholder="e.g. Metal"/></div>
+        <div class="fg"><div class="flabel">Product Name</div><input class="finput" id="pm_name" placeholder="e.g. Jumbo Roll 18gsm"/></div>
+        <div class="fg"><div class="flabel">Category</div>
+          <select class="fsel2" id="pm_category_id" onchange="onCategoryChange()">
+            <option value="">Select category...</option>
+          </select>
+        </div>
       </div>
       <div class="form-row">
         <div class="fg"><div class="flabel">Default Unit</div>
           <select class="fsel2" id="pm_unit">
-            <option>MT</option><option>KG</option><option>PCS</option><option>L</option><option>CBM</option><option>TON</option>
+            <option>MT</option><option>KG</option><option>PCS</option><option>L</option><option>CBM</option><option>TON</option><option>ROLL</option><option>BOX</option>
           </select>
         </div>
-        <div class="fg"><div class="flabel">HS Code</div><input class="finput" id="pm_hs_code" placeholder="e.g. 7213.10"/></div>
+        <div class="fg"><div class="flabel">HS Code</div><input class="finput" id="pm_hs_code" placeholder="e.g. 4803.00"/></div>
       </div>
       <div class="form-row">
-        <div class="fg" style="grid-column:1/-1"><div class="flabel">Description</div><input class="finput" id="pm_description" placeholder="Product description, specifications..."/></div>
+        <div class="fg" style="grid-column:1/-1"><div class="flabel">Description</div><input class="finput" id="pm_description" placeholder="Specifications, notes..."/></div>
       </div>
 
-      <div class="section-divider">Linked Suppliers & Prices</div>
+      <!-- Dynamic category custom fields -->
+      <div id="pmCustomFields" style="display:none">
+        <div class="section-divider">Category Specifications</div>
+        <div id="pmCustomFieldsGrid" class="form-row" style="grid-template-columns:1fr 1fr"></div>
+      </div>
+
+      <div class="section-divider">Linked Suppliers & Last Prices</div>
       <div id="pmSupplierList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
-      <div style="display:flex;gap:8px;align-items:flex-end" id="pmAddSupRow">
+      <div style="display:flex;gap:8px;align-items:flex-end">
         <div class="fg" style="flex:2;position:relative">
           <div class="flabel">Add Supplier</div>
-          <input class="finput" id="pm_sup_search" placeholder="Search suppliers..." autocomplete="off" oninput="filterPmSuppliers()" onfocus="showPmSupDd()" onblur="setTimeout(hidePmSupDd,200)"/>
+          <input class="finput" id="pm_sup_search" placeholder="Search suppliers..." autocomplete="off"
+            oninput="filterPmSuppliers()"
+            onfocus="filterPmSuppliers();document.getElementById('pmSupDd').style.display='block'"
+            onblur="setTimeout(()=>document.getElementById('pmSupDd').style.display='none',200)"/>
           <div id="pmSupDd" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border2);border-radius:6px;z-index:100;max-height:180px;overflow-y:auto;margin-top:2px;box-shadow:0 8px 24px rgba(0,0,0,.4)"></div>
         </div>
         <div class="fg" style="flex:1">
-          <div class="flabel">Last Price (USD)</div>
+          <div class="flabel">Last Price</div>
           <input class="finput" id="pm_sup_price" type="number" placeholder="0.00"/>
         </div>
-        <div class="fg" style="flex:1">
+        <div class="fg" style="flex:0.7">
           <div class="flabel">Currency</div>
-          <select class="fsel2" id="pm_sup_currency"><option>USD</option><option>EUR</option><option>CNY</option><option>GBP</option><option>JPY</option></select>
+          <select class="fsel2" id="pm_sup_currency"><option>USD</option><option>EUR</option><option>CNY</option><option>GBP</option><option>JPY</option><option>UZS</option></select>
         </div>
         <button class="btn btn-ghost" onclick="addSupplierToProduct()" style="flex-shrink:0;margin-bottom:1px"><i class="ti ti-plus"></i>Add</button>
       </div>
@@ -619,6 +644,36 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeProductModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveProduct()"><i class="ti ti-check"></i>Save Product</button>
+    </div>
+  </div>
+</div>
+
+<!-- CATEGORY MODAL -->
+<div class="modal-bg" id="catModalBg">
+  <div class="modal" style="width:560px">
+    <div class="modal-head">
+      <i class="ti ti-category" style="font-size:18px;color:var(--accent4)"></i>
+      <h3 id="catModalTitle">Add Category</h3>
+      <button class="abtn" onclick="closeCatModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="fg"><div class="flabel">Category Name</div><input class="finput" id="cm_name" placeholder="e.g. Tissue Paper"/></div>
+        <div class="fg"><div class="flabel">Default Unit</div>
+          <select class="fsel2" id="cm_unit"><option>MT</option><option>KG</option><option>PCS</option><option>ROLL</option><option>BOX</option><option>CBM</option><option>TON</option><option>L</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="fg"><div class="flabel">Color</div><input class="finput" id="cm_color" type="color" value="#4af0b8" style="height:38px;padding:4px"/></div>
+        <div class="fg"><div class="flabel">Icon (Tabler icon name)</div><input class="finput" id="cm_icon" placeholder="e.g. ti-layers"/></div>
+      </div>
+      <div class="section-divider">Custom Fields for this Category</div>
+      <div id="cmFieldsList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
+      <button class="btn btn-ghost" onclick="addCmField()" style="width:100%;justify-content:center"><i class="ti ti-plus"></i>Add Field</button>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeCatModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCategory()"><i class="ti ti-check"></i>Save Category</button>
     </div>
   </div>
 </div>
@@ -1586,60 +1641,91 @@ async function renameFolder(id,oldName){
 }
 
 // ── PRODUCTS ──
-let allProducts=[], allProductSuppliers=[], pmLinkedSuppliers=[], editProductId=null;
-
-const catColors=['var(--accent)','var(--accent2)','var(--accent3)','var(--accent4)','var(--accent5)','#4af0f0','#f0c84a'];
-const catIcons={'Metal':'ti-bolt','Polymer':'ti-droplet','Chemical':'ti-flask','Wood':'ti-tree','Electrical':'ti-plug','Packaging':'ti-package','Food Grade':'ti-salad','Pigment':'ti-palette','default':'ti-box'};
+let allProducts=[], allProductSuppliers=[], allCategories=[];
+let pmLinkedSuppliers=[], editProductId=null;
+let activeCatFilter='all';
+let cmFields=[], editCatId=null;
+let pmSelectedSupId=null, pmSelectedSupName='';
 
 async function loadProducts(){
   document.getElementById('productsLoading').style.display='flex';
   document.getElementById('prodGrid').style.display='none';
-  if(isAdmin)document.getElementById('addProductBtn').style.display='flex';
-
-  const[{data:prods},{data:psups}]=await Promise.all([
+  if(isAdmin){
+    document.getElementById('addProductBtn').style.display='flex';
+    document.getElementById('manageCatsBtn').style.display='flex';
+  }
+  const[{data:cats},{data:prods},{data:psups}]=await Promise.all([
+    sb.from('categories').select('*').order('name'),
     sb.from('products').select('*').order('name'),
-    sb.from('product_suppliers').select('*,suppliers(name,country,reliability)')
+    sb.from('product_suppliers').select('*,suppliers(id,name,country,reliability,payment_term,credit_days_default)')
   ]);
+  allCategories=cats||[];
   allProducts=prods||[];
   allProductSuppliers=psups||[];
-
-  // populate category filter
-  const cats=[...new Set(allProducts.map(p=>p.category).filter(Boolean))].sort();
-  const cf=document.getElementById('prodCatFilter');
-  cf.innerHTML='<option value="">All Categories</option>'+cats.map(c=>`<option value="${c}">${c}</option>`).join('');
-
+  renderCategoryTabs();
   document.getElementById('productsLoading').style.display='none';
   document.getElementById('prodGrid').style.display='grid';
   filterProducts();
 }
 
+function renderCategoryTabs(){
+  const tabs=document.getElementById('catTabs');
+  if(!tabs)return;
+  tabs.innerHTML=`<button class="filter-chip ${activeCatFilter==='all'?'active':''}" onclick="setCatFilter('all')">All</button>`
+    +allCategories.map(c=>`
+      <button class="filter-chip ${activeCatFilter===c.id?'active':''}" onclick="setCatFilter('${c.id}')"
+        style="${activeCatFilter===c.id?'background:'+c.color+';color:#000;border-color:'+c.color:''}">
+        <i class="ti ${c.icon||'ti-box'}" style="font-size:12px;margin-right:4px"></i>${c.name}
+      </button>`).join('');
+}
+
+function setCatFilter(id){
+  activeCatFilter=id;
+  renderCategoryTabs();
+  filterProducts();
+}
+
 function filterProducts(){
   const q=(document.getElementById('prodSearch')?.value||'').toLowerCase();
-  const cat=document.getElementById('prodCatFilter')?.value||'';
   const filtered=allProducts.filter(p=>{
-    if(cat&&p.category!==cat)return false;
-    if(q&&!`${p.name}${p.category}${p.hs_code||''}${p.description||''}`.toLowerCase().includes(q))return false;
+    if(activeCatFilter!=='all'&&p.category_id!==activeCatFilter)return false;
+    if(q&&!`${p.name}${p.category||''}${p.hs_code||''}${p.description||''}`.toLowerCase().includes(q))return false;
     return true;
   });
   renderProducts(filtered);
 }
 
+function getCatById(id){return allCategories.find(c=>c.id===id);}
+
 function renderProducts(prods){
   const grid=document.getElementById('prodGrid');
-  if(!prods.length){grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--muted);font-size:12px"><i class="ti ti-box" style="font-size:40px;display:block;margin-bottom:12px;color:var(--border2)"></i>No products yet.</div>`;return;}
-  grid.innerHTML=prods.map((p,i)=>{
+  if(!prods.length){
+    grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--muted);font-size:12px">
+      <i class="ti ti-box" style="font-size:40px;display:block;margin-bottom:12px;color:var(--border2)"></i>
+      No products found. ${isAdmin?'<button class="btn btn-primary" onclick="openProductModal()" style="margin:12px auto;display:flex"><i class="ti ti-plus"></i>Add Product</button>':''}
+    </div>`;
+    return;
+  }
+  grid.innerHTML=prods.map(p=>{
+    const cat=getCatById(p.category_id);
+    const catColor=cat?.color||'var(--accent)';
+    const icon=cat?.icon||'ti-box';
     const sups=allProductSuppliers.filter(ps=>ps.product_id===p.id);
-    const catColor=catColors[i%catColors.length];
-    const icon=catIcons[p.category]||catIcons.default;
-    const bestPrice=sups.length?Math.min(...sups.map(s=>s.last_price||Infinity)):null;
+    const prices=sups.map(s=>s.last_price).filter(Boolean);
+    const bestPrice=prices.length?Math.min(...prices):null;
+    const avgPrice=prices.length?prices.reduce((a,b)=>a+b,0)/prices.length:null;
+    // custom fields
+    const customVals=p.custom_values||{};
+    const customFields=cat?.custom_fields||[];
+    const filledFields=customFields.filter(f=>customVals[f.key]);
     return `<div class="prod-card">
       <div class="prod-card-head">
         <div class="prod-icon" style="background:${catColor}22;color:${catColor}"><i class="ti ${icon}"></i></div>
         <div style="flex:1;min-width:0">
           <div class="prod-name">${p.name}</div>
-          <div class="prod-meta" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
-            ${p.category?`<span class="prod-cat-badge">${p.category}</span>`:''}
-            ${p.unit?`<span class="prod-cat-badge" style="color:var(--accent4)">${p.unit}</span>`:''}
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+            ${cat?`<span class="prod-cat-badge" style="color:${catColor};border-color:${catColor}44;background:${catColor}11">${cat.name}</span>`:''}
+            ${p.unit?`<span class="prod-cat-badge">${p.unit}</span>`:''}
             ${p.hs_code?`<span class="prod-cat-badge">HS: ${p.hs_code}</span>`:''}
           </div>
           ${p.description?`<div style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.4">${p.description}</div>`:''}
@@ -1649,27 +1735,40 @@ function renderProducts(prods){
           <button class="abtn" onclick="deleteProduct('${p.id}')" title="Delete" style="color:var(--accent3)"><i class="ti ti-trash"></i></button>
         </div>`:''}
       </div>
+      ${filledFields.length?`<div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:12px;flex-wrap:wrap">
+        ${filledFields.map(f=>`<div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">${f.label}</div>
+          <div style="font-size:12px;font-weight:500;margin-top:2px">${customVals[f.key]}</div></div>`).join('')}
+      </div>`:''}
       <div class="prod-body">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
           <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px">Suppliers (${sups.length})</div>
-          ${bestPrice&&bestPrice!==Infinity?`<div style="font-size:11px;color:var(--accent2)">Best: <strong>$${Number(bestPrice).toLocaleString()}</strong></div>`:''}
+          <div style="display:flex;gap:8px">
+            ${bestPrice?`<div style="font-size:10px;color:var(--muted)">Best: <span style="color:var(--accent2);font-weight:500">$${Number(bestPrice).toLocaleString()}</span></div>`:''}
+            ${avgPrice&&sups.length>1?`<div style="font-size:10px;color:var(--muted)">Avg: <span style="color:var(--accent);font-weight:500">$${Math.round(avgPrice).toLocaleString()}</span></div>`:''}
+          </div>
         </div>
         <div class="prod-sup-list">
-          ${sups.length?sups.map(ps=>`
-            <div class="prod-sup-row">
-              <div style="width:6px;height:6px;border-radius:50%;background:var(--accent2);flex-shrink:0"></div>
-              <div class="prod-sup-name">${flags[ps.suppliers?.country]||'🌐'} ${ps.suppliers?.name||'Unknown'}</div>
+          ${sups.length?sups.map(ps=>{
+            const sup=ps.suppliers;
+            const ptColor={'paid':'var(--accent2)','credit':'var(--accent4)','partial':'var(--accent3)'}[sup?.payment_term]||'var(--muted)';
+            const ptLabel={'paid':'Cash','credit':'Credit','partial':'Partial','lc':'LC','tt':'TT'}[sup?.payment_term]||'';
+            return `<div class="prod-sup-row">
+              <div style="width:6px;height:6px;border-radius:50%;background:${catColor};flex-shrink:0"></div>
+              <div style="flex:1;min-width:0">
+                <div class="prod-sup-name">${flags[sup?.country]||'🌐'} ${sup?.name||'Unknown'}</div>
+                ${ptLabel?`<div style="font-size:9px;color:${ptColor}">${ptLabel}${sup?.credit_days_default?' · '+sup.credit_days_default+'d':''}</div>`:''}
+              </div>
               <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
-                ${ps.last_price?`<div class="prod-sup-price">$${Number(ps.last_price).toLocaleString()} <span style="font-size:9px;color:var(--muted)">${ps.currency||'USD'}</span></div>`:'<div style="font-size:10px;color:var(--muted)">No price</div>'}
+                ${ps.last_price?`<div class="prod-sup-price">$${Number(ps.last_price).toLocaleString()} <span style="font-size:9px;color:var(--muted)">${ps.currency||'USD'}</span></div>`:'<div style="font-size:10px;color:var(--muted)">No price yet</div>'}
                 ${ps.last_order_date?`<div class="prod-sup-date">${ps.last_order_date}</div>`:''}
               </div>
               ${isAdmin?`<button class="abtn" onclick="removeProductSupplier('${ps.id}')" title="Remove" style="color:var(--accent3);flex-shrink:0"><i class="ti ti-x"></i></button>`:''}
-            </div>`).join(''):`<div style="font-size:11px;color:var(--muted);padding:8px 0">No suppliers linked yet.</div>`}
+            </div>`;}).join(''):`<div style="font-size:11px;color:var(--muted);padding:6px 0">No suppliers linked yet.</div>`}
         </div>
       </div>
       <div class="prod-footer">
-        <button class="btn btn-ghost" style="flex:1;justify-content:center;font-size:11px" onclick="viewProductOrders('${p.name}')"><i class="ti ti-package"></i>View Orders</button>
-        ${isAdmin?`<button class="btn btn-ghost" style="font-size:11px" onclick="quickAddSupplier('${p.id}')"><i class="ti ti-plus"></i>Add Supplier</button>`:''}
+        <button class="btn btn-ghost" style="flex:1;justify-content:center;font-size:11px" onclick="viewProductOrders('${p.name}')"><i class="ti ti-package"></i>Orders</button>
+        ${isAdmin?`<button class="btn btn-ghost" style="font-size:11px" onclick="quickAddSupplier('${p.id}')"><i class="ti ti-plus"></i>Supplier</button>`:''}
       </div>
     </div>`;
   }).join('');
@@ -1677,29 +1776,73 @@ function renderProducts(prods){
 
 // ── PRODUCT MODAL ──
 function openProductModal(){
-  editProductId=null;pmLinkedSuppliers=[];
+  editProductId=null;pmLinkedSuppliers=[];pmSelectedSupId=null;pmSelectedSupName='';
   document.getElementById('productModalTitle').textContent='Add Product';
-  ['pm_name','pm_category','pm_hs_code','pm_description','pm_sup_search','pm_sup_price'].forEach(id=>document.getElementById(id).value='');
+  ['pm_name','pm_hs_code','pm_description','pm_sup_search','pm_sup_price'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pm_unit').value='MT';
   document.getElementById('pm_sup_currency').value='USD';
+  document.getElementById('pm_category_id').value='';
+  populateCategorySelect();
   renderPmSupplierList();
+  renderPmCustomFields(null);
   document.getElementById('productModalBg').classList.add('open');
 }
 function closeProductModal(){document.getElementById('productModalBg').classList.remove('open');}
 
+function populateCategorySelect(){
+  const sel=document.getElementById('pm_category_id');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">Select category...</option>'+allCategories.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  if(cur)sel.value=cur;
+}
+
+function onCategoryChange(){
+  const catId=document.getElementById('pm_category_id').value;
+  const cat=getCatById(catId);
+  if(cat){
+    document.getElementById('pm_unit').value=cat.default_unit||'MT';
+    // filter suppliers by category
+    filterPmSuppliers();
+  }
+  renderPmCustomFields(cat);
+}
+
+function renderPmCustomFields(cat){
+  const fields=cat?.custom_fields||[];
+  const wrap=document.getElementById('pmCustomFields');
+  const grid=document.getElementById('pmCustomFieldsGrid');
+  if(!fields.length){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  grid.innerHTML=fields.map(f=>`
+    <div class="fg">
+      <div class="flabel">${f.label}</div>
+      <input class="finput" id="pmcf_${f.key}" type="${f.type||'text'}" placeholder="${f.label}"/>
+    </div>`).join('');
+}
+
 async function editProduct(id){
   const p=allProducts.find(x=>x.id===id);if(!p)return;
   editProductId=id;
+  populateCategorySelect();
   document.getElementById('productModalTitle').textContent='Edit — '+p.name;
   document.getElementById('pm_name').value=p.name||'';
-  document.getElementById('pm_category').value=p.category||'';
+  document.getElementById('pm_category_id').value=p.category_id||'';
   document.getElementById('pm_unit').value=p.unit||'MT';
   document.getElementById('pm_hs_code').value=p.hs_code||'';
   document.getElementById('pm_description').value=p.description||'';
-  // load linked suppliers
+  const cat=getCatById(p.category_id);
+  renderPmCustomFields(cat);
+  // fill custom values
+  const cv=p.custom_values||{};
+  (cat?.custom_fields||[]).forEach(f=>{
+    const el=document.getElementById('pmcf_'+f.key);
+    if(el)el.value=cv[f.key]||'';
+  });
   pmLinkedSuppliers=allProductSuppliers.filter(ps=>ps.product_id===id).map(ps=>({
-    id:ps.id,supplier_id:ps.supplier_id,name:ps.suppliers?.name||'',
-    last_price:ps.last_price,currency:ps.currency||'USD',last_order_date:ps.last_order_date,saved:true
+    id:ps.id,supplier_id:ps.supplier_id,
+    name:ps.suppliers?.name||'',country:ps.suppliers?.country||'',
+    last_price:ps.last_price,currency:ps.currency||'USD',
+    last_order_date:ps.last_order_date,saved:true
   }));
   renderPmSupplierList();
   document.getElementById('productModalBg').classList.add('open');
@@ -1708,21 +1851,41 @@ async function editProduct(id){
 async function saveProduct(){
   const name=document.getElementById('pm_name').value.trim();
   if(!name){toast('Product name required','err');return;}
-  const payload={name,category:document.getElementById('pm_category').value||null,unit:document.getElementById('pm_unit').value,hs_code:document.getElementById('pm_hs_code').value||null,description:document.getElementById('pm_description').value||null};
+  const catId=document.getElementById('pm_category_id').value||null;
+  const cat=getCatById(catId);
+  // collect custom field values
+  const customValues={};
+  (cat?.custom_fields||[]).forEach(f=>{
+    const el=document.getElementById('pmcf_'+f.key);
+    if(el&&el.value)customValues[f.key]=el.value;
+  });
+  const payload={
+    name,
+    category_id:catId,
+    category:cat?.name||document.getElementById('pm_category_id').options[document.getElementById('pm_category_id').selectedIndex]?.text||null,
+    unit:document.getElementById('pm_unit').value,
+    hs_code:document.getElementById('pm_hs_code').value||null,
+    description:document.getElementById('pm_description').value||null,
+    custom_values:Object.keys(customValues).length?customValues:null
+  };
   let prodId=editProductId;
   if(editProductId){
-    await sb.from('products').update(payload).eq('id',editProductId);
+    const{error}=await sb.from('products').update(payload).eq('id',editProductId);
+    if(error){toast('Error: '+error.message,'err');return;}
   } else {
-    const{data}=await sb.from('products').insert(payload).select().single();
+    const{data,error}=await sb.from('products').insert(payload).select().single();
+    if(error){toast('Error: '+error.message,'err');return;}
     prodId=data?.id;
   }
   // save new linked suppliers
   for(const s of pmLinkedSuppliers.filter(x=>!x.saved)){
-    await sb.from('product_suppliers').upsert({product_id:prodId,supplier_id:s.supplier_id,last_price:s.last_price||null,currency:s.currency||'USD'},{onConflict:'product_id,supplier_id'});
+    await sb.from('product_suppliers').upsert({
+      product_id:prodId,supplier_id:s.supplier_id,
+      last_price:s.last_price||null,currency:s.currency||'USD'
+    },{onConflict:'product_id,supplier_id'});
   }
   toast(editProductId?'Product updated ✓':'Product saved ✓','ok');
-  closeProductModal();
-  loadProducts();
+  closeProductModal();loadProducts();
 }
 
 async function deleteProduct(id){
@@ -1739,53 +1902,87 @@ async function removeProductSupplier(psId){
   toast('Supplier removed','ok');loadProducts();
 }
 
-// PM Supplier linking in modal
-let pmSelectedSupId=null,pmSelectedSupName='';
-function showPmSupDd(){filterPmSuppliers();document.getElementById('pmSupDd').style.display='block';}
-function hidePmSupDd(){document.getElementById('pmSupDd').style.display='none';}
+// Supplier autocomplete in product modal
 function filterPmSuppliers(){
   const q=document.getElementById('pm_sup_search').value.toLowerCase();
+  const catId=document.getElementById('pm_category_id').value;
   const dd=document.getElementById('pmSupDd');
   const already=pmLinkedSuppliers.map(s=>s.supplier_id);
-  const filtered=allSuppliers.filter(s=>!already.includes(s.id)&&(!q||s.name.toLowerCase().includes(q)||(s.country||'').toLowerCase().includes(q)));
-  if(!filtered.length){dd.innerHTML=`<div class="sup-opt-empty">No suppliers found</div>`;return;}
-  dd.innerHTML=filtered.map(s=>`<div class="sup-opt" onmousedown="selectPmSupplier('${s.id}','${s.name.replace(/'/g,"\'")}')">
-    <div class="sup-opt-name">${flags[s.country]||'🌐'} ${s.name}</div>
-    <div class="sup-opt-meta">${s.country||''} · ${s.category||''}</div>
-  </div>`).join('');
+  let filtered=allSuppliers.filter(s=>!already.includes(s.id)&&(!q||s.name.toLowerCase().includes(q)||(s.country||'').toLowerCase().includes(q)));
+  if(!filtered.length){dd.innerHTML=`<div class="sup-opt-empty">No suppliers found</div>`;dd.style.display='block';return;}
+  dd.innerHTML=filtered.map(s=>`
+    <div class="sup-opt" onmousedown="selectPmSupplier('${s.id}','${s.name.replace(/'/g,"\'")}','${s.country||''}')">
+      <div class="sup-opt-name">${flags[s.country]||'🌐'} ${s.name}</div>
+      <div class="sup-opt-meta">${s.country||''} · ${s.category||''} · Reliability: ${s.reliability||'—'}%</div>
+    </div>`).join('');
+  dd.style.display='block';
 }
-function selectPmSupplier(id,name){pmSelectedSupId=id;pmSelectedSupName=name;document.getElementById('pm_sup_search').value=name;hidePmSupDd();}
+
+function selectPmSupplier(id,name,country){
+  pmSelectedSupId=id;pmSelectedSupName=name;
+  document.getElementById('pm_sup_search').value=name;
+  document.getElementById('pmSupDd').style.display='none';
+}
+
 function addSupplierToProduct(){
   if(!pmSelectedSupId){toast('Select a supplier first','err');return;}
   if(pmLinkedSuppliers.find(s=>s.supplier_id===pmSelectedSupId)){toast('Already added','err');return;}
-  pmLinkedSuppliers.push({supplier_id:pmSelectedSupId,name:pmSelectedSupName,last_price:parseFloat(document.getElementById('pm_sup_price').value)||null,currency:document.getElementById('pm_sup_currency').value,saved:false});
-  document.getElementById('pm_sup_search').value='';document.getElementById('pm_sup_price').value='';
+  const sup=allSuppliers.find(s=>s.id===pmSelectedSupId);
+  pmLinkedSuppliers.push({
+    supplier_id:pmSelectedSupId,name:pmSelectedSupName,
+    country:sup?.country||'',
+    last_price:parseFloat(document.getElementById('pm_sup_price').value)||null,
+    currency:document.getElementById('pm_sup_currency').value,saved:false
+  });
+  document.getElementById('pm_sup_search').value='';
+  document.getElementById('pm_sup_price').value='';
   pmSelectedSupId=null;pmSelectedSupName='';
   renderPmSupplierList();
 }
+
 function removePmSupplier(idx){pmLinkedSuppliers.splice(idx,1);renderPmSupplierList();}
+
 function renderPmSupplierList(){
   const el=document.getElementById('pmSupplierList');
-  if(!pmLinkedSuppliers.length){el.innerHTML=`<div style="font-size:11px;color:var(--muted);padding:4px 0">No suppliers linked yet.</div>`;return;}
+  if(!pmLinkedSuppliers.length){
+    el.innerHTML=`<div style="font-size:11px;color:var(--muted);padding:4px 0">No suppliers linked yet.</div>`;return;
+  }
   el.innerHTML=pmLinkedSuppliers.map((s,i)=>`
     <div style="display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px">
-      <div style="flex:1;font-size:12px;font-weight:500">${flags[allSuppliers.find(x=>x.id===s.supplier_id)?.country]||'🌐'} ${s.name}</div>
-      ${s.last_price?`<div style="font-size:11px;color:var(--accent2)">$${Number(s.last_price).toLocaleString()} ${s.currency}</div>`:'<div style="font-size:10px;color:var(--muted)">No price</div>'}
+      <div style="flex:1;font-size:12px;font-weight:500">${flags[s.country]||'🌐'} ${s.name}</div>
+      <input class="finput" style="width:100px;padding:4px 8px;font-size:11px" type="number" placeholder="Price" value="${s.last_price||''}"
+        onchange="pmLinkedSuppliers[${i}].last_price=parseFloat(this.value)||null"/>
+      <select class="fsel2" style="padding:4px 8px;font-size:11px;width:70px" onchange="pmLinkedSuppliers[${i}].currency=this.value">
+        <option ${s.currency==='USD'?'selected':''}>USD</option>
+        <option ${s.currency==='EUR'?'selected':''}>EUR</option>
+        <option ${s.currency==='CNY'?'selected':''}>CNY</option>
+        <option ${s.currency==='UZS'?'selected':''}>UZS</option>
+      </select>
       <button class="abtn" onclick="removePmSupplier(${i})" style="color:var(--accent3)"><i class="ti ti-x"></i></button>
     </div>`).join('');
 }
 
 function quickAddSupplier(productId){
+  const p=allProducts.find(x=>x.id===productId);if(!p)return;
   editProductId=productId;
-  const p=allProducts.find(x=>x.id===productId);
-  if(p){document.getElementById('productModalTitle').textContent='Add Supplier to '+p.name;}
-  pmLinkedSuppliers=allProductSuppliers.filter(ps=>ps.product_id===productId).map(ps=>({id:ps.id,supplier_id:ps.supplier_id,name:ps.suppliers?.name||'',last_price:ps.last_price,currency:ps.currency||'USD',saved:true}));
+  populateCategorySelect();
+  document.getElementById('pm_name').value=p.name||'';
+  document.getElementById('pm_category_id').value=p.category_id||'';
+  document.getElementById('pm_unit').value=p.unit||'MT';
+  document.getElementById('pm_hs_code').value=p.hs_code||'';
+  document.getElementById('pm_description').value=p.description||'';
+  document.getElementById('productModalTitle').textContent='Add Supplier to '+p.name;
+  pmLinkedSuppliers=allProductSuppliers.filter(ps=>ps.product_id===productId).map(ps=>({
+    id:ps.id,supplier_id:ps.supplier_id,name:ps.suppliers?.name||'',
+    country:ps.suppliers?.country||'',last_price:ps.last_price,
+    currency:ps.currency||'USD',saved:true
+  }));
   renderPmSupplierList();
+  renderPmCustomFields(getCatById(p.category_id));
   document.getElementById('productModalBg').classList.add('open');
 }
 
 function viewProductOrders(productName){
-  // Switch to orders view and filter by product name
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>{if(n.textContent.trim().startsWith('Orders'))n.classList.add('active');});
   document.querySelectorAll('[id^="view-"]').forEach(d=>d.style.display='none');
@@ -1798,17 +1995,142 @@ function viewProductOrders(productName){
   searchTerm=productName;renderOrders();
 }
 
+// ── CATEGORIES MANAGEMENT ──
+async function loadCategories(){
+  document.getElementById('catsLoading').style.display='flex';
+  document.getElementById('catsGrid').style.display='none';
+  const{data}=await sb.from('categories').select('*').order('name');
+  allCategories=data||[];
+  document.getElementById('catsLoading').style.display='none';
+  document.getElementById('catsGrid').style.display='grid';
+  renderCategories();
+}
+
+function renderCategories(){
+  const grid=document.getElementById('catsGrid');
+  if(!allCategories.length){grid.innerHTML=`<div style="color:var(--muted);font-size:12px;padding:24px;grid-column:1/-1">No categories yet.</div>`;return;}
+  grid.innerHTML=allCategories.map(c=>{
+    const fields=c.custom_fields||[];
+    const prodCount=allProducts.filter(p=>p.category_id===c.id).length;
+    return `<div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;overflow:hidden">
+      <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px">
+        <div style="width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:${c.color}22;color:${c.color};font-size:18px;flex-shrink:0">
+          <i class="ti ${c.icon||'ti-box'}"></i>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">${c.name}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Unit: ${c.default_unit} · ${prodCount} product${prodCount!==1?'s':''}</div>
+        </div>
+        <div style="display:flex;gap:4px">
+          <button class="abtn" onclick="editCategory('${c.id}')" title="Edit"><i class="ti ti-edit"></i></button>
+          <button class="abtn" onclick="deleteCategory('${c.id}')" title="Delete" style="color:var(--accent3)"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>
+      <div style="padding:12px 16px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Custom Fields (${fields.length})</div>
+        ${fields.length?fields.map(f=>`
+          <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
+            <span class="prod-cat-badge">${f.type||'text'}</span>
+            <span style="font-size:12px;color:var(--text)">${f.label}</span>
+            <span style="font-size:10px;color:var(--muted);margin-left:auto">key: ${f.key}</span>
+          </div>`).join(''):'<div style="font-size:11px;color:var(--muted)">No custom fields</div>'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openCatModal(){
+  editCatId=null;cmFields=[];
+  document.getElementById('catModalTitle').textContent='Add Category';
+  ['cm_name','cm_icon'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('cm_unit').value='MT';
+  document.getElementById('cm_color').value='#4af0b8';
+  renderCmFields();
+  document.getElementById('catModalBg').classList.add('open');
+}
+function closeCatModal(){document.getElementById('catModalBg').classList.remove('open');}
+
+function editCategory(id){
+  const c=allCategories.find(x=>x.id===id);if(!c)return;
+  editCatId=id;
+  document.getElementById('catModalTitle').textContent='Edit — '+c.name;
+  document.getElementById('cm_name').value=c.name||'';
+  document.getElementById('cm_unit').value=c.default_unit||'MT';
+  document.getElementById('cm_color').value=c.color||'#4af0b8';
+  document.getElementById('cm_icon').value=c.icon||'';
+  cmFields=JSON.parse(JSON.stringify(c.custom_fields||[]));
+  renderCmFields();
+  document.getElementById('catModalBg').classList.add('open');
+}
+
+function addCmField(){
+  cmFields.push({key:'field_'+Date.now(),label:'New Field',type:'text'});
+  renderCmFields();
+}
+
+function removeCmField(idx){cmFields.splice(idx,1);renderCmFields();}
+
+function renderCmFields(){
+  const el=document.getElementById('cmFieldsList');
+  if(!cmFields.length){el.innerHTML=`<div style="font-size:11px;color:var(--muted);padding:4px 0">No custom fields. Click Add Field to create one.</div>`;return;}
+  el.innerHTML=cmFields.map((f,i)=>`
+    <div style="display:flex;gap:8px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px">
+      <div class="fg" style="flex:2">
+        <div class="flabel">Label</div>
+        <input class="finput" style="padding:5px 8px;font-size:11px" value="${f.label}" onchange="cmFields[${i}].label=this.value;cmFields[${i}].key=this.value.toLowerCase().replace(/[^a-z0-9]/g,'_')"/>
+      </div>
+      <div class="fg" style="flex:1">
+        <div class="flabel">Type</div>
+        <select class="fsel2" style="padding:5px 8px;font-size:11px" onchange="cmFields[${i}].type=this.value">
+          <option ${f.type==='text'?'selected':''} value="text">Text</option>
+          <option ${f.type==='number'?'selected':''} value="number">Number</option>
+        </select>
+      </div>
+      <button class="abtn" onclick="removeCmField(${i})" style="color:var(--accent3);margin-top:16px"><i class="ti ti-x"></i></button>
+    </div>`).join('');
+}
+
+async function saveCategory(){
+  const name=document.getElementById('cm_name').value.trim();
+  if(!name){toast('Category name required','err');return;}
+  const payload={
+    name,
+    default_unit:document.getElementById('cm_unit').value,
+    color:document.getElementById('cm_color').value,
+    icon:document.getElementById('cm_icon').value||'ti-box',
+    custom_fields:cmFields
+  };
+  let error;
+  if(editCatId)({error}=await sb.from('categories').update(payload).eq('id',editCatId));
+  else({error}=await sb.from('categories').insert(payload));
+  if(error){toast('Error: '+error.message,'err');return;}
+  toast(editCatId?'Category updated ✓':'Category saved ✓','ok');
+  closeCatModal();loadCategories();
+}
+
+async function deleteCategory(id){
+  if(!confirm('Delete this category? Products in it will be uncategorized.'))return;
+  const{error}=await sb.from('categories').delete().eq('id',id);
+  if(error){toast('Error: '+error.message,'err');return;}
+  toast('Category deleted','ok');loadCategories();
+}
+
 // ── IMPORT / EXPORT PRODUCTS ──
 function exportProducts(){
   const h=['Name','Category','Unit','HS Code','Description','Suppliers','Best Price USD'];
   const rows=allProducts.map(p=>{
     const sups=allProductSuppliers.filter(ps=>ps.product_id===p.id);
     const supNames=sups.map(s=>s.suppliers?.name||'').join(' | ');
-    const bestPrice=sups.length?Math.min(...sups.map(s=>s.last_price||Infinity)):null;
-    return[p.name,p.category||'',p.unit||'',p.hs_code||'',p.description||'',supNames,bestPrice&&bestPrice!==Infinity?bestPrice:''];
+    const prices=sups.map(s=>s.last_price).filter(Boolean);
+    const best=prices.length?Math.min(...prices):'';
+    const cat=getCatById(p.category_id);
+    return[p.name,cat?.name||p.category||'',p.unit||'',p.hs_code||'',p.description||'',supNames,best];
   });
   const csv=[h,...rows].map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
-  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='products_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='products_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
   toast('Products exported ✓','ok');
 }
 
@@ -1820,14 +2142,17 @@ async function importProducts(input){
   for(const row of rows){
     const cols=row.split(',').map(c=>c.replace(/^"|"$/g,'').trim());
     const name=cols[0];if(!name)continue;
-    const existing=allProducts.find(p=>p.name.toLowerCase()===name.toLowerCase());
-    if(existing){skipped++;continue;}
-    const{error}=await sb.from('products').insert({name,category:cols[1]||null,unit:cols[2]||'MT',hs_code:cols[3]||null,description:cols[4]||null});
+    if(allProducts.find(p=>p.name.toLowerCase()===name.toLowerCase())){skipped++;continue;}
+    const catName=cols[1];
+    const cat=allCategories.find(c=>c.name.toLowerCase()===catName?.toLowerCase());
+    const{error}=await sb.from('products').insert({
+      name,category:catName||null,category_id:cat?.id||null,
+      unit:cols[2]||'MT',hs_code:cols[3]||null,description:cols[4]||null
+    });
     if(!error)added++;
   }
   toast(`Imported ${added} products${skipped?' ('+skipped+' skipped)':''}  ✓`,'ok');
-  input.value='';
-  loadProducts();
+  input.value='';loadProducts();
 }
 
 // ── REPORTS ──
@@ -1906,13 +2231,14 @@ function showView(v,el){
   curView=v;
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));el.classList.add('active');
   document.querySelectorAll('[id^="view-"]').forEach(d=>d.style.display='none');document.getElementById('view-'+v).style.display='block';
-  const titles={orders:'Order Board',suppliers:'Suppliers',documents:'Documents',reports:'Reports',ai:'AI Analysis',users:'User Management'};
-  const subs={orders:'All Imports',suppliers:'Supplier Directory',documents:'Folder View',reports:'Analytics',ai:'Powered by Claude',users:'Admin Only'};
+  const titles={orders:'Order Board',suppliers:'Suppliers',products:'Products',categories:'Categories',documents:'Documents',reports:'Reports',ai:'AI Analysis',users:'User Management'};
+  const subs={orders:'All Imports',suppliers:'Supplier Directory',products:'Product Catalog',categories:'Manage Categories',documents:'Folder View',reports:'Analytics',ai:'Powered by Claude',users:'Admin Only'};
   document.getElementById('pageTitle').innerHTML=titles[v]+` <span id="viewLabel">${subs[v]}</span>`;
   document.getElementById('statsRow').style.display=v==='orders'?'flex':'none';
   document.getElementById('filtersRow').style.display=v==='orders'?'flex':'none';
   document.getElementById('addBtn').style.display=(v==='orders'&&isAdmin)?'flex':'none';
   if(v==='products')loadProducts();
+  if(v==='categories')loadCategories();
   if(v==='suppliers')loadSuppliers();
   if(v==='documents'){docSubfolder=null;docGoRoot();loadDocs();}
   if(v==='reports')renderReports();
