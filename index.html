@@ -226,6 +226,17 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .ai-key-row{display:flex;gap:8px;align-items:center}
 .ai-key-input{flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:7px;padding:8px 14px;color:var(--text);font-family:var(--fm);font-size:12px;outline:none}
 
+/* DOC CONTROLS */
+.doc-action-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.doc-action-bar .sep{flex:1}
+.folder-card-wrap{position:relative}
+.folder-card-wrap .folder-menu{display:none;position:absolute;top:8px;right:8px;z-index:10}
+.folder-card-wrap:hover .folder-menu{display:flex;gap:4px}
+.doc-card-wrap{position:relative}
+.doc-card-wrap .doc-menu{display:none;position:absolute;top:8px;right:8px;z-index:10;flex-direction:column;gap:4px}
+.doc-card-wrap:hover .doc-menu{display:flex}
+.rename-input{background:var(--surface2);border:1px solid var(--accent);border-radius:4px;padding:3px 7px;color:var(--text);font-family:var(--fm);font-size:11px;outline:none;width:100%;margin-top:4px}
+
 /* TOAST */
 .toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:12px 16px;font-size:12px;z-index:999;display:flex;align-items:center;gap:8px;transform:translateY(80px);opacity:0;transition:all .3s}
 .toast.show{transform:translateY(0);opacity:1}
@@ -361,6 +372,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
       <!-- DOCUMENTS -->
       <div id="view-documents" style="display:none">
+        <!-- Toolbar -->
         <div class="doc-toolbar">
           <div class="doc-breadcrumb" id="docBreadcrumb">
             <span onclick="docGoRoot()"><i class="ti ti-folders" style="font-size:14px"></i> All Suppliers</span>
@@ -381,13 +393,11 @@ tr:hover td{background:rgba(255,255,255,.02)}
             </select>
           </div>
         </div>
-        <div id="docUploadZone" style="display:none">
-          <label class="upload-zone" for="fileInput">
-            <i class="ti ti-cloud-upload" style="font-size:28px;color:var(--muted);display:block;margin-bottom:8px"></i>
-            <div style="font-size:13px;color:var(--muted)">Click to upload document to this folder</div>
-            <div style="font-size:11px;color:var(--border2);margin-top:4px">PDF, XLSX, JPG, PNG</div>
-          </label>
-          <input type="file" id="fileInput" style="display:none" accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png" onchange="uploadDoc(this)"/>
+        <!-- Action bar (shown based on level + role) -->
+        <div class="doc-action-bar" id="docActionBar" style="display:none">
+          <button class="btn btn-primary" id="docUploadBtn" onclick="triggerUpload()" style="display:none"><i class="ti ti-upload"></i>Upload File</button>
+          <button class="btn btn-ghost" id="docNewFolderBtn" onclick="promptNewFolder()" style="display:none"><i class="ti ti-folder-plus"></i>New Folder</button>
+          <input type="file" id="fileInputMain" style="display:none" accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png" multiple onchange="handleFileUpload(this)"/>
         </div>
         <div class="loading" id="docsLoading"><div class="spin"></div>Loading documents...</div>
         <div id="docViewArea" style="display:none"></div>
@@ -549,7 +559,8 @@ let sortCol='id', sortDir='desc';
 let editOrderId=null, editSupId=null;
 let aiKey='';
 // doc navigation state
-let docLevel='root'; // root | supplier | order
+let docLevel='root'; // root | supplier | subfolder | order
+let docSubfolder=null;
 let docSupId=null, docSupName='', docOrderId=null, docOrderRef='';
 
 const flags={'China':'🇨🇳','UAE':'🇦🇪','Germany':'🇩🇪','Sweden':'🇸🇪','Saudi Arabia':'🇸🇦','Russia':'🇷🇺','South Africa':'🇿🇦','Malaysia':'🇲🇾','USA':'🇺🇸','Mexico':'🇲🇽','Austria':'🇦🇹','Japan':'🇯🇵','Turkey':'🇹🇷','Italy':'🇮🇹','France':'🇫🇷','Brazil':'🇧🇷','India':'🇮🇳'};
@@ -578,7 +589,7 @@ async function doSignup(){
   const pass=document.getElementById('su_pass').value;
   document.getElementById('signupErr').textContent='';document.getElementById('signupMsg').textContent='';
   if(!name){document.getElementById('signupErr').textContent='Name is required';return;}
-  const{error}=await sb.auth.signUp({email,password:pass,options:{data:{full_name:name}}});
+  const{error}=await sb.auth.signUp({email,password:pass,options:{data:{full_name:name,name:name}}});
   if(error)document.getElementById('signupErr').textContent=error.message;
   else document.getElementById('signupMsg').textContent='Account created! Check your email to confirm, then sign in.';
 }
@@ -587,7 +598,22 @@ async function doLogout(){await sb.auth.signOut();document.getElementById('mainA
 sb.auth.onAuthStateChange(async(event,session)=>{
   if(session?.user){
     currentUser=session.user;
-    await loadProfile();
+    try{
+      await Promise.race([
+        loadProfile(),
+        new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')),5000))
+      ]);
+    }catch(e){
+      console.warn('loadProfile failed or timed out:',e);
+      isAdmin=false;
+      document.getElementById('avEl').textContent=currentUser.email.slice(0,2).toUpperCase();
+      document.getElementById('uName').textContent=currentUser.email;
+      document.getElementById('uRole').textContent='User';
+      document.getElementById('roleDot').style.background='var(--accent2)';
+      document.getElementById('roleLabel').textContent='User View';
+      document.getElementById('addBtn').style.display='none';
+      document.getElementById('usersNav').style.display='none';
+    }
     document.getElementById('authScreen').style.display='none';
     document.getElementById('mainApp').style.display='flex';
     loadOrders();
@@ -595,9 +621,13 @@ sb.auth.onAuthStateChange(async(event,session)=>{
 });
 
 async function loadProfile(){
-  const{data}=await sb.from('profiles').select('*').eq('id',currentUser.id).single();
+  let data=null;
+  try{
+    const res=await sb.from('profiles').select('*').eq('id',currentUser.id).maybeSingle();
+    data=res.data;
+  }catch(e){console.warn('Profile error:',e);}
   currentProfile=data;isAdmin=data?.role==='admin';
-  const name=data?.full_name||currentUser.email;
+  const name=data?.name||data?.full_name||currentUser.email;
   const initials=name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
   document.getElementById('avEl').textContent=initials;
   document.getElementById('uName').textContent=name;
@@ -836,6 +866,11 @@ async function saveSupplier(){
   if(editSupId)({error}=await sb.from('suppliers').update(payload).eq('id',editSupId));
   else({error}=await sb.from('suppliers').insert(payload));
   if(error){toast('Error: '+error.message,'err');return;}
+  // Auto-create supplier folder in documents
+  if(!editSupId){
+    const{data:newSup}=await sb.from('suppliers').select('id').eq('name',name).order('created_at',{ascending:false}).limit(1).single();
+    if(newSup)await ensureSupplierFolder(newSup.id,name);
+  }
   toast(editSupId?'Supplier updated ✓':'Supplier saved ✓','ok');closeSupModal();loadSuppliers();
 }
 
@@ -847,6 +882,9 @@ async function delSup(id){
 }
 
 // ── DOCUMENTS — Folder Navigation ──
+// docLevel: 'root' | 'supplier' | 'subfolder' | 'order'
+// Each supplier auto-gets a folder; subfolders can be created inside supplier or order folders
+
 async function loadDocs(){
   document.getElementById('docsLoading').style.display='flex';
   document.getElementById('docViewArea').style.display='none';
@@ -855,142 +893,305 @@ async function loadDocs(){
   allDocs=data||[];
   document.getElementById('docsLoading').style.display='none';
   document.getElementById('docViewArea').style.display='block';
+  updateDocActionBar();
   renderDocView();
 }
 
-function docGoRoot(){
-  docLevel='root';docSupId=null;docSupName='';docOrderId=null;docOrderRef='';
-  document.getElementById('docUploadZone').style.display='none';
-  updateDocBreadcrumb();renderDocView();
+function updateDocActionBar(){
+  const bar=document.getElementById('docActionBar');
+  const upBtn=document.getElementById('docUploadBtn');
+  const folderBtn=document.getElementById('docNewFolderBtn');
+  if(!isAdmin){bar.style.display='none';return;}
+  bar.style.display='flex';
+  // upload available at supplier, subfolder and order level
+  upBtn.style.display=(docLevel!=='root')?'flex':'none';
+  // new folder available at supplier level and subfolder level
+  folderBtn.style.display=(docLevel==='supplier'||docLevel==='subfolder'||docLevel==='order')?'flex':'none';
 }
+
+function triggerUpload(){document.getElementById('fileInputMain').click();}
+
+async function handleFileUpload(input){
+  const files=Array.from(input.files);
+  if(!files.length)return;
+  for(const file of files){
+    await uploadDocCore(file,docSupId,docSupName,docOrderId,docOrderRef,docSubfolder);
+  }
+  input.value='';
+  await loadDocs();
+}
+
+function promptNewFolder(){
+  const name=prompt('Enter folder name:');
+  if(!name||!name.trim())return;
+  createSubfolder(name.trim());
+}
+
+async function createSubfolder(name){
+  // Store subfolders as special document records with type='folder'
+  const payload={
+    name:name,
+    type:'folder',
+    supplier_id:docSupId||null,
+    supplier_name:docSupName||null,
+    order_id:docOrderId||null,
+    order_ref:docOrderRef||null,
+    meta:docSubfolder||null, // parent subfolder path
+    storage_path:'folder::'+name,
+    uploaded_by:currentUser.id
+  };
+  const{error}=await sb.from('documents').insert(payload);
+  if(error){toast('Error creating folder: '+error.message,'err');return;}
+  toast('Folder created ✓','ok');
+  await loadDocs();
+}
+
+// Auto-create supplier folder when supplier is saved (called from saveSupplier)
+async function ensureSupplierFolder(supId,supName){
+  // Check if folder doc exists
+  const{data}=await sb.from('documents').select('id').eq('type','folder').eq('supplier_id',supId).eq('order_id',null).eq('meta',null).maybeSingle();
+  if(!data){
+    await sb.from('documents').insert({
+      name:supName,type:'folder',supplier_id:supId,supplier_name:supName,
+      storage_path:'folder::supplier::'+supId,uploaded_by:currentUser.id
+    });
+  }
+}
+
+function docGoRoot(){
+  docLevel='root';docSupId=null;docSupName='';docOrderId=null;docOrderRef='';docSubfolder=null;
+  updateDocBreadcrumb();updateDocActionBar();renderDocView();
+}
+
 function docGoSupplier(supId,supName){
-  docLevel='supplier';docSupId=supId;docSupName=supName;docOrderId=null;docOrderRef='';
-  updateDocBreadcrumb();
-  // switch to documents view
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n=>{if(n.textContent.includes('Documents'))n.classList.add('active');});
+  docLevel='supplier';docSupId=supId;docSupName=supName;docOrderId=null;docOrderRef='';docSubfolder=null;
+  updateDocBreadcrumb();updateDocActionBar();
+  // switch to documents tab if not already there
   document.querySelectorAll('[id^="view-"]').forEach(d=>d.style.display='none');
   document.getElementById('view-documents').style.display='block';
-  document.getElementById('pageTitle').innerHTML='Documents <span id="viewLabel">'+supName+'</span>';
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>{if(n.textContent.includes('Documents'))n.classList.add('active');});
   document.getElementById('statsRow').style.display='none';
   document.getElementById('filtersRow').style.display='none';
   document.getElementById('addBtn').style.display='none';
+  document.getElementById('pageTitle').innerHTML='Documents <span id="viewLabel">'+supName+'</span>';
   loadDocs();
 }
+
 function docGoOrder(orderId,orderRef){
-  docLevel='order';docOrderId=orderId;docOrderRef=orderRef;
-  if(isAdmin)document.getElementById('docUploadZone').style.display='block';
-  updateDocBreadcrumb();renderDocView();
+  docLevel='order';docOrderId=orderId;docOrderRef=orderRef;docSubfolder=null;
+  updateDocBreadcrumb();updateDocActionBar();renderDocView();
+}
+
+function docGoSubfolder(folderName){
+  docSubfolder=folderName;
+  if(docLevel==='supplier')docLevel='subfolder';
+  updateDocBreadcrumb();updateDocActionBar();renderDocView();
+}
+
+function docGoBack(){
+  if(docSubfolder){docSubfolder=null;docLevel=docOrderId?'order':'supplier';}
+  else if(docOrderId){docOrderId=null;docOrderRef='';docLevel='supplier';}
+  else{docGoRoot();return;}
+  updateDocBreadcrumb();updateDocActionBar();renderDocView();
 }
 
 function updateDocBreadcrumb(){
   const bc=document.getElementById('docBreadcrumb');
-  if(docLevel==='root'){
-    bc.innerHTML=`<span><i class="ti ti-folders" style="font-size:14px"></i> All Suppliers</span>`;
-  } else if(docLevel==='supplier'){
-    bc.innerHTML=`<span onclick="docGoRoot()"><i class="ti ti-folders" style="font-size:14px"></i> All Suppliers</span><span class="sep">/</span><span class="current">${docSupName}</span>`;
-  } else {
-    bc.innerHTML=`<span onclick="docGoRoot()"><i class="ti ti-folders" style="font-size:14px"></i> All Suppliers</span><span class="sep">/</span><span onclick="docGoSupplier('${docSupId}','${docSupName}')">${docSupName}</span><span class="sep">/</span><span class="current">${docOrderRef}</span>`;
+  let html=`<span onclick="docGoRoot()"><i class="ti ti-folders" style="font-size:14px"></i> All Suppliers</span>`;
+  if(docLevel!=='root'){
+    html+=`<span class="sep">/</span><span onclick="docGoSupplier('${docSupId}','${docSupName.replace(/'/g,"\'")}')">${docSupName}</span>`;
   }
+  if(docOrderId){
+    html+=`<span class="sep">/</span><span onclick="docGoOrder(${docOrderId},'${docOrderRef}')">${docOrderRef}</span>`;
+  }
+  if(docSubfolder){
+    html+=`<span class="sep">/</span><span class="current">${docSubfolder}</span>`;
+  } else if(docLevel!=='root'){
+    // make last item current
+    html=html.replace(/(<span)[^>]*(>[^<]*<\/span>)$/,'$1 class="current"$2');
+  }
+  bc.innerHTML=html;
 }
 
 function renderDocView(){
   const area=document.getElementById('docViewArea');
+  if(!area)return;
   const sortVal=document.getElementById('docSortSel')?.value||'date_desc';
   const typeFilter=document.getElementById('docTypeFilter')?.value||'';
 
   if(docLevel==='root'){
-    // show supplier folders
-    if(!allSuppliers.length){area.innerHTML=`<div class="empty-state"><i class="ti ti-building-factory-2"></i>No suppliers yet. Add suppliers first.</div>`;return;}
-    // count docs per supplier
-    const countBySup={};allDocs.forEach(d=>{if(d.supplier_id)countBySup[d.supplier_id]=(countBySup[d.supplier_id]||0)+1;});
-    let sups=[...allSuppliers];
-    if(sortVal==='name_asc')sups.sort((a,b)=>a.name.localeCompare(b.name));
-    else if(sortVal==='name_desc')sups.sort((a,b)=>b.name.localeCompare(a.name));
-    area.innerHTML=`<div class="folder-grid">${sups.map((s,i)=>`
-      <div class="folder-card" onclick="docGoSupplier('${s.id}','${s.name.replace(/'/g,"\\'")}')">
-        <div class="folder-icon" style="color:${supColors[i%supColors.length]}"><i class="ti ti-folder-filled"></i></div>
-        <div class="folder-name">${s.name}</div>
-        <div class="folder-meta">${flags[s.country]||'🌐'} ${s.country||''} · ${countBySup[s.id]||0} file${(countBySup[s.id]||0)!==1?'s':''}</div>
-      </div>`).join('')}</div>`;
+    renderRootLevel(area,sortVal);
   } else if(docLevel==='supplier'){
-    // show order folders for this supplier
-    const supOrders=[...new Map(
-      allDocs.filter(d=>d.supplier_id===docSupId||d.supplier_name===docSupName)
-        .map(d=>[d.order_id,{id:d.order_id,ref:d.order_ref||('ORD-'+String(d.order_id).padStart(4,'0'))}])
-    ).values()].filter(o=>o.id);
-    // also show orders from orders table for this supplier
-    const ordersForSup=orders.filter(o=>o.supplier_name===docSupName);
-    const allOrderFolders=[...new Map([
-      ...ordersForSup.map(o=>['ord_'+o.id,{id:o.id,ref:'ORD-'+String(o.id).padStart(4,'0'),product:o.product}]),
-      ...supOrders.map(o=>['ord_'+o.id,{id:o.id,ref:o.ref,product:''}])
-    ].reverse()).values()];
-
-    let html=`<div class="folder-grid">`;
-    if(!allOrderFolders.length){
-      html+=`<div style="grid-column:1/-1"><div class="empty-state"><i class="ti ti-folder-open"></i>No order folders yet.<br>Upload a document to create one.</div></div>`;
-    } else {
-      html+=allOrderFolders.map(o=>{
-        const cnt=allDocs.filter(d=>(d.order_id===o.id||d.order_ref===o.ref)&&(d.supplier_id===docSupId||d.supplier_name===docSupName)).length;
-        return `<div class="folder-card" onclick="docGoOrder(${o.id},'${o.ref}')">
-          <div class="folder-icon" style="color:var(--accent2)"><i class="ti ti-folder-filled"></i></div>
-          <div class="folder-name">${o.ref}</div>
-          <div class="folder-meta">${o.product||''}</div>
-          <div class="folder-meta">${cnt} file${cnt!==1?'s':''}</div>
-        </div>`;
-      }).join('');
-    }
-    html+=`</div>`;
-    // also show unassigned docs for this supplier
-    const unassigned=allDocs.filter(d=>(d.supplier_id===docSupId||d.supplier_name===docSupName)&&!d.order_id);
-    if(unassigned.length){
-      html+=`<div style="font-size:11px;color:var(--muted);margin:16px 0 10px">Unassigned files</div><div class="file-grid">${renderFileCards(unassigned,typeFilter)}</div>`;
-    }
-    if(isAdmin){
-      html=`<div id="docUploadZoneInner" style="margin-bottom:16px">
-        <label class="upload-zone" for="fileInput2">
-          <i class="ti ti-cloud-upload" style="font-size:28px;color:var(--muted);display:block;margin-bottom:8px"></i>
-          <div style="font-size:13px;color:var(--muted)">Upload to this supplier (no specific order)</div>
-        </label>
-        <input type="file" id="fileInput2" style="display:none" accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png" onchange="uploadDocToSupplier(this)"/>
-      </div>`+html;
-    }
-    area.innerHTML=html;
-  } else {
-    // order level — show files
-    let files=allDocs.filter(d=>d.order_id===docOrderId||(d.order_ref===docOrderRef&&(d.supplier_id===docSupId||d.supplier_name===docSupName)));
-    if(typeFilter){
-      const imgExts=['jpg','jpeg','png'];
-      files=files.filter(d=>{const ext=d.name.split('.').pop().toLowerCase();return typeFilter==='img'?imgExts.includes(ext):ext===typeFilter;});
-    }
-    // sort files
-    files=sortFiles(files,sortVal);
-    const orderData=orders.find(o=>o.id===docOrderId);
-    let html=``;
-    if(orderData){
-      html+=`<div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;gap:24px;flex-wrap:wrap">
-        <div><div style="font-size:10px;color:var(--muted)">Product</div><div style="font-size:12px;font-weight:500;margin-top:2px">${orderData.product}</div></div>
-        <div><div style="font-size:10px;color:var(--muted)">Status</div><div style="margin-top:2px"><span class="sbadge s-${orderData.status}">${sLabel[orderData.status]||orderData.status}</span></div></div>
-        <div><div style="font-size:10px;color:var(--muted)">Value</div><div style="font-size:12px;color:var(--accent2);font-weight:500;margin-top:2px">$${(orderData.price||0).toLocaleString()}</div></div>
-        <div><div style="font-size:10px;color:var(--muted)">Delivery</div><div style="font-size:12px;margin-top:2px">${orderData.delivery||'—'}</div></div>
-        <div><div style="font-size:10px;color:var(--muted)">Shipment</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${orderData.shipnum||'—'}</div></div>
-      </div>`;
-    }
-    if(isAdmin){
-      html+=`<label class="upload-zone" for="fileInputOrder">
-        <i class="ti ti-cloud-upload" style="font-size:28px;color:var(--muted);display:block;margin-bottom:8px"></i>
-        <div style="font-size:13px;color:var(--muted)">Upload document to ${docOrderRef}</div>
-      </label>
-      <input type="file" id="fileInputOrder" style="display:none" accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png" onchange="uploadDocToOrder(this)"/>`;
-    }
-    if(!files.length){html+=`<div class="empty-state"><i class="ti ti-file-off"></i>No documents in this order folder yet.</div>`;}
-    else html+=`<div class="file-grid">${renderFileCards(files,typeFilter)}</div>`;
-    area.innerHTML=html;
+    renderSupplierLevel(area,sortVal,typeFilter);
+  } else if(docLevel==='subfolder'){
+    renderSubfolderLevel(area,sortVal,typeFilter);
+  } else if(docLevel==='order'){
+    renderOrderLevel(area,sortVal,typeFilter);
   }
 }
 
+function renderRootLevel(area,sortVal){
+  if(!allSuppliers.length){area.innerHTML=`<div class="empty-state"><i class="ti ti-building-factory-2"></i>No suppliers yet.</div>`;return;}
+  let sups=[...allSuppliers];
+  if(sortVal==='name_asc')sups.sort((a,b)=>a.name.localeCompare(b.name));
+  else if(sortVal==='name_desc')sups.sort((a,b)=>b.name.localeCompare(a.name));
+  const countBySup={};
+  allDocs.filter(d=>d.type!=='folder').forEach(d=>{if(d.supplier_id)countBySup[d.supplier_id]=(countBySup[d.supplier_id]||0)+1;});
+  area.innerHTML=`<div class="folder-grid">${sups.map((s,i)=>`
+    <div class="folder-card-wrap">
+      <div class="folder-card" onclick="docGoSupplier('${s.id}','${s.name.replace(/'/g,"\'")}')">
+        <div class="folder-icon" style="color:${supColors[i%supColors.length]}"><i class="ti ti-folder-filled"></i></div>
+        <div class="folder-name">${s.name}</div>
+        <div class="folder-meta">${flags[s.country]||'🌐'} ${s.country||''}</div>
+        <div class="folder-meta">${countBySup[s.id]||0} file${(countBySup[s.id]||0)!==1?'s':''}</div>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+function renderSupplierLevel(area,sortVal,typeFilter){
+  // Get subfolders for this supplier (not inside an order)
+  const subfolders=allDocs.filter(d=>d.type==='folder'&&d.supplier_id===docSupId&&!d.order_id&&!d.meta);
+  // Get order folders
+  const ordersForSup=orders.filter(o=>o.supplier_name===docSupName);
+  // Get loose files (no order, no subfolder)
+  let looseFiles=allDocs.filter(d=>d.type!=='folder'&&d.supplier_id===docSupId&&!d.order_id&&!d.meta);
+  if(typeFilter)looseFiles=filterByType(looseFiles,typeFilter);
+  looseFiles=sortFiles(looseFiles,sortVal);
+
+  let html='';
+  // Order folders
+  if(ordersForSup.length){
+    html+=`<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Order Folders</div>`;
+    html+=`<div class="folder-grid">`;
+    html+=ordersForSup.map(o=>{
+      const ref='ORD-'+String(o.id).padStart(4,'0');
+      const cnt=allDocs.filter(d=>d.type!=='folder'&&d.order_id===o.id).length;
+      return `<div class="folder-card-wrap">
+        <div class="folder-card" onclick="docGoOrder(${o.id},'${ref}')">
+          <div class="folder-icon" style="color:var(--accent2)"><i class="ti ti-folder-filled"></i></div>
+          <div class="folder-name">${ref}</div>
+          <div class="folder-meta">${o.product||''}</div>
+          <div class="folder-meta">${cnt} file${cnt!==1?'s':''}</div>
+        </div>
+        ${isAdmin?`<div class="folder-menu"><button class="abtn" onclick="event.stopPropagation();delOrderFolder(${o.id})" title="Delete folder" style="color:var(--accent3)"><i class="ti ti-trash"></i></button></div>`:''}
+      </div>`;
+    }).join('');
+    html+=`</div>`;
+  }
+
+  // Custom subfolders
+  if(subfolders.length){
+    html+=`<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin:16px 0 10px">Custom Folders</div>`;
+    html+=`<div class="folder-grid">`;
+    html+=subfolders.map(f=>`
+      <div class="folder-card-wrap">
+        <div class="folder-card" onclick="docGoSubfolder('${f.name}')">
+          <div class="folder-icon" style="color:var(--accent3)"><i class="ti ti-folder-filled"></i></div>
+          <div class="folder-name">${f.name}</div>
+          <div class="folder-meta">${allDocs.filter(d=>d.type!=='folder'&&d.meta===f.name&&d.supplier_id===docSupId).length} files</div>
+        </div>
+        ${isAdmin?`<div class="folder-menu">
+          <button class="abtn" onclick="event.stopPropagation();renameFolder('${f.id}','${f.name}')" title="Rename"><i class="ti ti-edit"></i></button>
+          <button class="abtn" onclick="event.stopPropagation();deleteFolderById('${f.id}')" title="Delete" style="color:var(--accent3)"><i class="ti ti-trash"></i></button>
+        </div>`:''}
+      </div>`).join('');
+    html+=`</div>`;
+  }
+
+  // Loose files
+  if(looseFiles.length){
+    html+=`<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin:16px 0 10px">Files</div>`;
+    html+=`<div class="file-grid">${renderFileCards(looseFiles)}</div>`;
+  }
+
+  if(!ordersForSup.length&&!subfolders.length&&!looseFiles.length){
+    html+=`<div class="empty-state"><i class="ti ti-folder-open"></i>Empty supplier folder.<br>Upload files or create order folders.</div>`;
+  }
+  area.innerHTML=html;
+}
+
+function renderSubfolderLevel(area,sortVal,typeFilter){
+  let files=allDocs.filter(d=>d.type!=='folder'&&d.supplier_id===docSupId&&d.meta===docSubfolder&&!d.order_id);
+  if(typeFilter)files=filterByType(files,typeFilter);
+  files=sortFiles(files,sortVal);
+  let html=isAdmin?`<label class="upload-zone" for="fileInputMain" onclick="triggerUpload()">
+    <i class="ti ti-cloud-upload" style="font-size:28px;color:var(--muted);display:block;margin-bottom:8px"></i>
+    <div style="font-size:13px;color:var(--muted)">Upload to "${docSubfolder}"</div>
+  </label>`:'';
+  html+=files.length?`<div class="file-grid">${renderFileCards(files)}</div>`:`<div class="empty-state"><i class="ti ti-file-off"></i>No files in this folder yet.</div>`;
+  area.innerHTML=html;
+}
+
+function renderOrderLevel(area,sortVal,typeFilter){
+  // Subfolders inside this order
+  const subfolders=allDocs.filter(d=>d.type==='folder'&&d.order_id===docOrderId);
+  // Files (no subfolder)
+  let files=allDocs.filter(d=>d.type!=='folder'&&d.order_id===docOrderId&&!d.meta);
+  if(typeFilter)files=filterByType(files,typeFilter);
+  files=sortFiles(files,sortVal);
+
+  const orderData=orders.find(o=>o.id===docOrderId);
+  let html='';
+  if(orderData){
+    html+=`<div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;gap:24px;flex-wrap:wrap">
+      <div><div style="font-size:10px;color:var(--muted)">Product</div><div style="font-size:12px;font-weight:500;margin-top:2px">${orderData.product}</div></div>
+      <div><div style="font-size:10px;color:var(--muted)">Status</div><div style="margin-top:2px"><span class="sbadge s-${orderData.status}">${sLabel[orderData.status]||orderData.status}</span></div></div>
+      <div><div style="font-size:10px;color:var(--muted)">Value</div><div style="font-size:12px;color:var(--accent2);font-weight:500;margin-top:2px">$${(orderData.price||0).toLocaleString()}</div></div>
+      <div><div style="font-size:10px;color:var(--muted)">Delivery</div><div style="font-size:12px;margin-top:2px">${orderData.delivery||'—'}</div></div>
+      <div><div style="font-size:10px;color:var(--muted)">Shipment</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${orderData.shipnum||'—'}</div></div>
+    </div>`;
+  }
+  if(isAdmin){
+    html+=`<label class="upload-zone" onclick="triggerUpload()">
+      <i class="ti ti-cloud-upload" style="font-size:28px;color:var(--muted);display:block;margin-bottom:8px"></i>
+      <div style="font-size:13px;color:var(--muted)">Upload to ${docOrderRef}</div>
+    </label>`;
+  }
+  // Subfolders
+  if(subfolders.length){
+    html+=`<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Subfolders</div>`;
+    html+=`<div class="folder-grid">`;
+    html+=subfolders.map(f=>`
+      <div class="folder-card-wrap">
+        <div class="folder-card" onclick="docGoSubfolderInOrder('${f.name}','${f.id}')">
+          <div class="folder-icon" style="color:var(--accent3)"><i class="ti ti-folder-filled"></i></div>
+          <div class="folder-name">${f.name}</div>
+          <div class="folder-meta">${allDocs.filter(d=>d.type!=='folder'&&d.order_id===docOrderId&&d.meta===f.name).length} files</div>
+        </div>
+        ${isAdmin?`<div class="folder-menu">
+          <button class="abtn" onclick="event.stopPropagation();renameFolder('${f.id}','${f.name}')" title="Rename"><i class="ti ti-edit"></i></button>
+          <button class="abtn" onclick="event.stopPropagation();deleteFolderById('${f.id}')" title="Delete" style="color:var(--accent3)"><i class="ti ti-trash"></i></button>
+        </div>`:''}
+      </div>`).join('');
+    html+=`</div>`;
+  }
+  html+=files.length?`<div class="file-grid">${renderFileCards(files)}</div>`:(subfolders.length?'':` <div class="empty-state"><i class="ti ti-file-off"></i>No documents yet.</div>`);
+  area.innerHTML=html;
+}
+
+function docGoSubfolderInOrder(name,folderId){
+  docSubfolder=name;
+  docLevel='subfolder';
+  updateDocBreadcrumb();updateDocActionBar();
+  // show files in this subfolder of order
+  const area=document.getElementById('docViewArea');
+  let files=allDocs.filter(d=>d.type!=='folder'&&d.order_id===docOrderId&&d.meta===name);
+  let html=isAdmin?`<label class="upload-zone" onclick="triggerUpload()">
+    <i class="ti ti-cloud-upload" style="font-size:28px;color:var(--muted);display:block;margin-bottom:8px"></i>
+    <div style="font-size:13px;color:var(--muted)">Upload to "${name}"</div>
+  </label>`:'';
+  html+=files.length?`<div class="file-grid">${renderFileCards(files)}</div>`:`<div class="empty-state"><i class="ti ti-file-off"></i>No files yet.</div>`;
+  area.innerHTML=html;
+}
+
+function filterByType(files,typeFilter){
+  const imgExts=['jpg','jpeg','png'];
+  return files.filter(d=>{const ext=d.name.split('.').pop().toLowerCase();return typeFilter==='img'?imgExts.includes(ext):ext===typeFilter;});
+}
+
 function sortFiles(files,sortVal){
-  return files.sort((a,b)=>{
+  return [...files].sort((a,b)=>{
     if(sortVal==='name_asc')return a.name.localeCompare(b.name);
     if(sortVal==='name_desc')return b.name.localeCompare(a.name);
     if(sortVal==='date_asc')return new Date(a.created_at)-new Date(b.created_at);
@@ -1007,48 +1208,91 @@ function renderFileCards(files){
   return files.map(d=>{
     const ext=d.name.split('.').pop().toLowerCase();
     const dateStr=d.created_at?new Date(d.created_at).toLocaleDateString():'';
-    return `<div class="doc-card">
-      <div class="doc-icon-wrap"><i class="ti ${ic[ext]||'ti-file'}" style="font-size:22px;color:var(--muted)"></i></div>
-      <div class="doc-name">${d.name}</div>
-      <div class="doc-meta">${d.meta||''} ${dateStr?'· '+dateStr:''}</div>
-      ${d.order_ref?`<div style="font-size:10px;color:var(--accent);margin-top:3px">${d.order_ref}</div>`:''}
-      <span class="doc-type ${tc[ext]||'dt-pdf'}">${tl[ext]||'FILE'}</span>
-      ${isAdmin?`<div style="margin-top:8px"><button class="abtn" onclick="delDoc('${d.id}')" title="Delete" style="color:var(--accent3)"><i class="ti ti-trash"></i></button></div>`:''}
+    return `<div class="doc-card-wrap">
+      <div class="doc-card">
+        <div class="doc-icon-wrap"><i class="ti ${ic[ext]||'ti-file'}" style="font-size:22px;color:var(--muted)"></i></div>
+        <div class="doc-name">${d.name}</div>
+        <div class="doc-meta">${d.meta&&d.type!=='folder'?d.meta+' · ':''} ${dateStr}</div>
+        ${d.order_ref?`<div style="font-size:10px;color:var(--accent);margin-top:3px">${d.order_ref}</div>`:''}
+        <span class="doc-type ${tc[ext]||'dt-pdf'}">${tl[ext]||'FILE'}</span>
+      </div>
+      ${isAdmin?`<div class="doc-menu">
+        <button class="abtn" onclick="delDoc('${d.id}')" title="Delete file" style="color:var(--accent3)"><i class="ti ti-trash"></i></button>
+        ${d.storage_path&&!d.storage_path.startsWith('folder::')?`<button class="abtn" onclick="downloadDoc('${d.storage_path}','${d.name}')" title="Download"><i class="ti ti-download"></i></button>`:''}
+      </div>`:''}
     </div>`;
   }).join('');
 }
 
-async function uploadDocToSupplier(input){
-  const file=input.files[0];if(!file)return;
-  await uploadDocCore(file,docSupId,docSupName,null,null);
-  input.value='';loadDocs();
-}
-async function uploadDocToOrder(input){
-  const file=input.files[0];if(!file)return;
-  await uploadDocCore(file,docSupId,docSupName,docOrderId,docOrderRef);
-  input.value='';loadDocs();
-}
-async function uploadDocCore(file,supId,supName,orderId,orderRef){
-  toast('Uploading...','ok');
-  const path=`${currentUser.id}/${Date.now()}_${file.name}`;
+async function uploadDocCore(file,supId,supName,orderId,orderRef,subfolder){
+  const path=`${supId||'general'}/${orderId||'general'}/${Date.now()}_${file.name}`;
   const{error:upErr}=await sb.storage.from('documents').upload(path,file);
   if(upErr){toast('Upload error: '+upErr.message,'err');return;}
   const{error:dbErr}=await sb.from('documents').insert({
     name:file.name,type:file.name.split('.').pop().toLowerCase(),
-    meta:(file.size/1024).toFixed(0)+' KB',storage_path:path,
-    supplier_id:supId||null,supplier_name:supName||null,
+    meta:subfolder||(file.size/1024).toFixed(0)+' KB',
+    storage_path:path,supplier_id:supId||null,supplier_name:supName||null,
     order_id:orderId||null,order_ref:orderRef||null,
     uploaded_by:currentUser.id
   });
   if(dbErr){toast('DB error: '+dbErr.message,'err');return;}
-  toast('Document uploaded ✓','ok');
+  toast(file.name+' uploaded ✓','ok');
 }
+
+async function downloadDoc(path,name){
+  const{data,error}=await sb.storage.from('documents').download(path);
+  if(error){toast('Download error','err');return;}
+  const url=URL.createObjectURL(data);
+  const a=document.createElement('a');a.href=url;a.download=name;a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
 async function delDoc(id){
   if(!confirm('Delete this document?'))return;
+  const doc=allDocs.find(d=>d.id===id);
+  if(doc?.storage_path&&!doc.storage_path.startsWith('folder::')){
+    await sb.storage.from('documents').remove([doc.storage_path]);
+  }
   const{error}=await sb.from('documents').delete().eq('id',id);
   if(error){toast('Error: '+error.message,'err');return;}
   toast('Document deleted','ok');
   allDocs=allDocs.filter(d=>d.id!==id);renderDocView();
+}
+
+async function deleteFolderById(id){
+  if(!confirm('Delete this folder and all its contents?'))return;
+  const folder=allDocs.find(d=>d.id===id);
+  if(!folder)return;
+  // delete all files inside
+  const inside=allDocs.filter(d=>d.meta===folder.name&&d.supplier_id===folder.supplier_id);
+  for(const f of inside){
+    if(f.storage_path&&!f.storage_path.startsWith('folder::'))await sb.storage.from('documents').remove([f.storage_path]);
+    await sb.from('documents').delete().eq('id',f.id);
+  }
+  await sb.from('documents').delete().eq('id',id);
+  toast('Folder deleted','ok');
+  await loadDocs();
+}
+
+async function delOrderFolder(orderId){
+  if(!confirm('Delete all documents in this order folder?'))return;
+  const docs=allDocs.filter(d=>d.order_id===orderId&&d.type!=='folder');
+  for(const f of docs){
+    if(f.storage_path&&!f.storage_path.startsWith('folder::'))await sb.storage.from('documents').remove([f.storage_path]);
+    await sb.from('documents').delete().eq('id',f.id);
+  }
+  toast('Order folder cleared','ok');
+  await loadDocs();
+}
+
+async function renameFolder(id,oldName){
+  const newName=prompt('Rename folder:',oldName);
+  if(!newName||newName===oldName)return;
+  await sb.from('documents').update({name:newName}).eq('id',id);
+  // update files inside
+  await sb.from('documents').update({meta:newName}).eq('meta',oldName).eq('supplier_id',docSupId);
+  toast('Folder renamed ✓','ok');
+  await loadDocs();
 }
 
 // ── REPORTS ──
@@ -1114,7 +1358,7 @@ async function loadUsers(){
   if(error){toast('Error: '+error.message,'err');return;}
   document.getElementById('usersLoading').style.display='none';document.getElementById('usersTable').style.display='table';
   document.getElementById('usersTBody').innerHTML=(data||[]).map(u=>`<tr>
-    <td>${u.full_name||'—'}</td><td style="color:var(--muted);font-size:11px">${u.id}</td>
+    <td>${u.name||u.full_name||'—'}</td><td style="color:var(--muted);font-size:11px">${u.id}</td>
     <td><span class="sbadge ${u.role==='admin'?'s-transit':'s-ordered'}">${u.role||'user'}</span></td>
     <td>${u.id!==currentUser.id?`<button class="abtn" onclick="toggleUserRole('${u.id}','${u.role==='admin'?'user':'admin'}')" title="Toggle role"><i class="ti ti-switch-horizontal"></i></button>`:'<span style="font-size:10px;color:var(--muted)">You</span>'}</td>
   </tr>`).join('');
@@ -1134,7 +1378,7 @@ function showView(v,el){
   document.getElementById('filtersRow').style.display=v==='orders'?'flex':'none';
   document.getElementById('addBtn').style.display=(v==='orders'&&isAdmin)?'flex':'none';
   if(v==='suppliers')loadSuppliers();
-  if(v==='documents'){docGoRoot();loadDocs();}
+  if(v==='documents'){docSubfolder=null;docGoRoot();loadDocs();}
   if(v==='reports')renderReports();
   if(v==='ai')renderAI();
   if(v==='users')loadUsers();
