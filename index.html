@@ -1982,6 +1982,16 @@ function renderSupplierLevel(area,sortVal,typeFilter){
   if(!ordersForSup.length&&!subfolders.length&&!looseFiles.length){
     html+=`<div class="empty-state"><i class="ti ti-folder-open"></i>Empty supplier folder.<br>Upload files or create order folders.</div>`;
   }
+  // Add upload zone for loose files at supplier level
+  if(isAdmin){
+    const uploadHtml=`<div class="upload-zone" onclick="document.getElementById('fileInputSup').click()" style="cursor:pointer;margin-bottom:16px">
+      <i class="ti ti-cloud-upload" style="font-size:28px;color:var(--muted);display:block;margin-bottom:8px"></i>
+      <div style="font-size:13px;color:var(--muted)">Upload file to ${docSupName}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;opacity:.6">PDF, XLSX, JPG, PNG — not linked to a specific order</div>
+    </div>
+    <input type="file" id="fileInputSup" style="display:none" accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png" onchange="uploadDocToSupplier(this)"/>`;
+    html=uploadHtml+html;
+  }
   area.innerHTML=html;
 }
 
@@ -1989,10 +1999,11 @@ function renderSubfolderLevel(area,sortVal,typeFilter){
   let files=allDocs.filter(d=>d.type!=='folder'&&d.supplier_id===docSupId&&d.meta===docSubfolder&&!d.order_id);
   if(typeFilter)files=filterByType(files,typeFilter);
   files=sortFiles(files,sortVal);
-  let html=isAdmin?`<label class="upload-zone" for="fileInputMain" onclick="triggerUpload()">
+  let html=isAdmin?`<div class="upload-zone" onclick="triggerUpload()" style="cursor:pointer">
     <i class="ti ti-cloud-upload" style="font-size:28px;color:var(--muted);display:block;margin-bottom:8px"></i>
-    <div style="font-size:13px;color:var(--muted)">Upload to "${docSubfolder}"</div>
-  </label>`:'';
+    <div style="font-size:13px;color:var(--muted)">Click to upload to "${docSubfolder}"</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px;opacity:.6">PDF, XLSX, JPG, PNG</div>
+  </div>`:'';
   html+=files.length?`<div class="file-grid">${renderFileCards(files)}</div>`:`<div class="empty-state"><i class="ti ti-file-off"></i>No files in this folder yet.</div>`;
   area.innerHTML=html;
 }
@@ -2017,10 +2028,11 @@ function renderOrderLevel(area,sortVal,typeFilter){
     </div>`;
   }
   if(isAdmin){
-    html+=`<label class="upload-zone" onclick="triggerUpload()">
+    html+=`<div class="upload-zone" onclick="triggerUpload()" style="cursor:pointer">
       <i class="ti ti-cloud-upload" style="font-size:28px;color:var(--muted);display:block;margin-bottom:8px"></i>
-      <div style="font-size:13px;color:var(--muted)">Upload to ${docOrderRef}</div>
-    </label>`;
+      <div style="font-size:13px;color:var(--muted)">Click to upload to ${docOrderRef}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;opacity:.6">PDF, XLSX, JPG, PNG</div>
+    </div>`;
   }
   // Subfolders
   if(subfolders.length){
@@ -2051,10 +2063,11 @@ function docGoSubfolderInOrder(name,folderId){
   // show files in this subfolder of order
   const area=document.getElementById('docViewArea');
   let files=allDocs.filter(d=>d.type!=='folder'&&d.order_id===docOrderId&&d.meta===name);
-  let html=isAdmin?`<label class="upload-zone" onclick="triggerUpload()">
+  let html=isAdmin?`<div class="upload-zone" onclick="triggerUpload()" style="cursor:pointer">
     <i class="ti ti-cloud-upload" style="font-size:28px;color:var(--muted);display:block;margin-bottom:8px"></i>
     <div style="font-size:13px;color:var(--muted)">Upload to "${name}"</div>
-  </label>`:'';
+    <div style="font-size:11px;color:var(--muted);margin-top:4px;opacity:.6">PDF, XLSX, JPG, PNG</div>
+  </div>`:'';
   html+=files.length?`<div class="file-grid">${renderFileCards(files)}</div>`:`<div class="empty-state"><i class="ti ti-file-off"></i>No files yet.</div>`;
   area.innerHTML=html;
 }
