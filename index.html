@@ -959,11 +959,7 @@ function flagImg(country){
   if(!code)return '<span style="font-size:14px">🌐</span>&nbsp;';
   return '<img src="https://flagcdn.com/20x15/'+code+'.png" width="20" height="15" style="border-radius:2px;vertical-align:middle;margin-right:5px;flex-shrink:0" alt="'+country+'" onerror="this.replaceWith(document.createTextNode('🌐'))">';
 }
-function flagImg(country){
-  const code=flags[country]||flags[(country||'').toUpperCase()];
-  if(!code)return '<span style="font-size:16px">🌐</span>';
-  return '<img src="https://flagcdn.com/20x15/'+code+'.png" srcset="https://flagcdn.com/40x30/'+code+'.png 2x" width="20" height="15" style="border-radius:2px;vertical-align:middle;margin-right:4px" alt="'+country+'" onerror="this.style.display='none'">';
-}
+
 const sLabel={transit:'In Transit',customs:'Customs Hold',delivered:'Delivered',ordered:'Ordered',delayed:'Delayed'};
 const stLabel={sea:'Sea',air:'Air',road:'Road'};
 const stIcon={sea:'ti-ship',air:'ti-plane',road:'ti-truck'};
