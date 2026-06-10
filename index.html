@@ -10,7 +10,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#f0f2f7;--surface:#ffffff;--surface2:#f5f6fa;--surface3:#eef0f6;
+  --bg:#f5f1eb;--surface:#ffffff;--surface2:#f5f6fa;--surface3:#eef0f6;
   --border:rgba(0,0,0,0.07);--border2:rgba(0,0,0,0.12);
   --text:#1a1d2e;--muted:#7a7f9a;
   --accent:#00c48c;--accent2:#00c48c;--accent3:#ff6b35;--accent4:#a855f7;--accent5:#f43f5e;
@@ -73,7 +73,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--fm);font-size:13px
 .btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-family:var(--fm);font-size:12px;font-weight:500;display:flex;align-items:center;gap:6px;transition:all .2s;box-shadow:var(--shadow-sm)}
 .btn-primary{background:linear-gradient(135deg,#00c48c,#00a878);color:#fff}.btn-primary:hover{opacity:.9;transform:translateY(-1px);box-shadow:var(--shadow)}
 .btn-ghost{background:var(--surface);color:var(--text);border:1px solid var(--border2)}.btn-ghost:hover{background:var(--surface2);border-color:var(--accent)}
-.content{flex:1;overflow-y:auto;padding:24px 28px;background:var(--bg)}
+.content{flex:1;overflow-y:auto;padding:24px 28px;background:#f7f3ee}
 .content::-webkit-scrollbar{width:5px}.content::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
 
 /* STATS */
@@ -97,13 +97,15 @@ body{background:var(--bg);color:var(--text);font-family:var(--fm);font-size:13px
 
 /* TABLE */
 table{width:100%;border-collapse:separate;border-spacing:0}
-th{text-align:left;font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.9px;padding:10px 12px;border-bottom:2px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:2;cursor:pointer;user-select:none}
+th{text-align:left;font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.9px;padding:10px 12px;border-bottom:2px solid var(--border);position:sticky;top:0;background:#f5f0e8;z-index:2;cursor:pointer;user-select:none}
 th:hover{color:var(--accent)}
 th .sort-icon{margin-left:4px;opacity:.4;font-size:10px}
 th.sorted .sort-icon{opacity:1;color:var(--accent)}
-td{padding:12px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+td{padding:11px 12px;border-bottom:1px solid #f0e8d8;vertical-align:middle}
 tr{transition:background .15s}
-tr:hover td{background:rgba(108,99,255,0.04)}
+tr:nth-child(even) td{background:#fdf8f2}
+tr:nth-child(odd) td{background:#fff}
+tr:hover td{background:#fef3e2 !important}
 .oid{color:var(--accent);font-size:12px;font-weight:500}
 .pname{font-size:12px;color:var(--text);font-weight:500}.pcat{font-size:10px;color:var(--muted);margin-top:2px}
 .cbadge{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);background:var(--surface2);border-radius:4px;padding:3px 8px;border:1px solid var(--border)}
@@ -462,14 +464,15 @@ tr:hover td{background:rgba(108,99,255,0.04)}
         <table id="ordersTable" style="display:none">
           <thead><tr>
             <th onclick="sortByCol('id')">Order ID<span class="sort-icon">↕</span></th>
+            <th onclick="sortByCol('supplier_name')">Supplier<span class="sort-icon">↕</span></th>
             <th onclick="sortByCol('product')">Product<span class="sort-icon">↕</span></th>
-            <th>Supplier</th><th>Country</th>
+            <th>Country</th>
             <th onclick="sortByCol('qty')">Qty<span class="sort-icon">↕</span></th>
-            <th onclick="sortByCol('price')">Price USD<span class="sort-icon">↕</span></th>
+            <th onclick="sortByCol('price')">Value</th>
             <th>Shipment</th>
             <th onclick="sortByCol('status')">Status<span class="sort-icon">↕</span></th>
             <th onclick="sortByCol('delivery')">Delivery<span class="sort-icon">↕</span></th>
-            <th onclick="sortByCol('payment_status')">Payment<span class="sort-icon">↕</span></th>
+            <th>Payment</th>
             <th></th>
           </tr></thead>
           <tbody id="orderTBody"></tbody>
@@ -1081,12 +1084,23 @@ function renderOrders(){
   const tb=document.getElementById('orderTBody');
   if(!f.length){tb.innerHTML=`<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--muted)">No orders found</td></tr>`;return;}
   tb.innerHTML=f.map(o=>`<tr>
-    <td><div class="oid">ORD-${String(o.id).padStart(4,'0')}</div>${o.has_items&&o.items_count>1?`<div style="font-size:9px;color:var(--accent4);margin-top:2px">${o.items_count} items</div>`:''}</td>
-    <td><div class="pname">${o.product||''}</div><div class="pcat">${o.has_items&&o.items_count>1?'Multiple categories':o.category||''}</div></td>
-    <td style="font-size:12px">${o.supplier_name||''}</td>
+    <td>
+      <div class="oid">ORD-${String(o.id).padStart(4,'0')}</div>
+      ${o.has_items&&o.items_count>1?`<div style="font-size:9px;color:var(--accent4);margin-top:2px;font-weight:600">${o.items_count} items</div>`:''}
+    </td>
+    <td>
+      <div style="font-size:12px;font-weight:600;color:var(--text)">${o.supplier_name||''}</div>
+    </td>
+    <td>
+      <div class="pname" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${o.product||''}">${o.has_items&&o.items_count>1?'Multiple products':(o.product||'').split(',')[0]}</div>
+      <div class="pcat">${o.has_items&&o.items_count>1?o.items_count+' items':o.category||''}</div>
+    </td>
     <td><span class="cbadge">${flags[o.country]||'🌐'} ${o.country||''}</span></td>
     <td><span class="qty-v">${(o.qty||0).toLocaleString()}</span><span class="qty-u">${o.unit||''}</span></td>
-    <td><span class="price-v">$${(o.price||0).toLocaleString()}</span></td>
+    <td>
+      <div style="font-size:13px;font-weight:600;color:var(--accent2)">${o.currency==='RUB'?'₽':'$'}${(o.price||0).toLocaleString()}</div>
+      <div style="font-size:10px;color:var(--muted)">${o.currency||'USD'}</div>
+    </td>
     <td><div class="snum">${o.shipnum||''}</div><span class="stype ship-${o.shiptype}"><i class="ti ${stIcon[o.shiptype]||'ti-package'}"></i>${stLabel[o.shiptype]||o.shiptype||''}</span></td>
     <td><span class="sbadge s-${o.status}">${o.status==='transit'?'<span class="pulse" aria-hidden="true"></span>':''}${sLabel[o.status]||o.status}</span></td>
     <td><div class="date-v">${o.delivery||''}</div>${o.status!=='delivered'&&o.delivery?daysLeft(o.delivery):'<span class="date-d" style="color:var(--accent2)">Completed ✓</span>'}</td>
