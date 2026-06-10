@@ -79,7 +79,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--fm);font-size:13px
 /* STATS */
 .stats-row{display:flex;gap:12px;padding:16px 24px;border-bottom:1px solid var(--border);background:var(--surface)}
 .stat-card{flex:1;background:var(--surface2);padding:16px 18px;border-radius:12px;border:1px solid var(--border);position:relative;overflow:hidden;box-shadow:var(--shadow-sm);transition:transform .2s,box-shadow .2s}
-.stat-card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.stat-card:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+.stat-card[onclick]:hover{transform:translateY(-4px);box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.stat-card[onclick]:active{transform:translateY(-1px)}
 .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--card-accent,var(--accent))}
 .stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px}
 .stat-val{font-family:var(--fh);font-size:24px;font-weight:700}
@@ -390,11 +392,48 @@ tr:hover td{background:rgba(108,99,255,0.04)}
     </div>
 
     <div class="stats-row" id="statsRow">
-      <div class="stat-card" style="--card-accent:var(--accent)"><div class="stat-label">Total Orders</div><div class="stat-val c-y" id="stTotal">0</div><div class="stat-sub">This quarter</div></div>
-      <div class="stat-card" style="--card-accent:var(--accent2)"><div class="stat-label">In Transit</div><div class="stat-val c-g" id="stTransit">0</div><div class="stat-sub">Active</div></div>
-      <div class="stat-card" style="--card-accent:var(--accent3)"><div class="stat-label">Customs Hold</div><div class="stat-val c-o" id="stCustoms">0</div><div class="stat-sub">Pending</div></div>
-      <div class="stat-card" style="--card-accent:var(--accent5)"><div class="stat-label">Delayed</div><div class="stat-val c-r" id="stDelayed">0</div><div class="stat-sub">Need attention</div></div>
-      <div class="stat-card" style="--card-accent:var(--accent4)"><div class="stat-label">Total Value</div><div class="stat-val c-p" id="stValue">$0</div><div class="stat-sub">USD imported</div></div>
+      <!-- Total Orders - clickable to filter all -->
+      <div class="stat-card" style="--card-accent:var(--accent);cursor:pointer" onclick="fStatusFromCard('all')" title="Show all orders">
+        <div class="stat-label">Total Orders</div>
+        <div class="stat-val c-y" id="stTotal">0</div>
+        <div class="stat-sub">This quarter</div>
+      </div>
+      <!-- In Transit - clickable -->
+      <div class="stat-card" style="--card-accent:var(--accent2);cursor:pointer" onclick="fStatusFromCard('transit')" title="Show in transit">
+        <div class="stat-label">In Transit</div>
+        <div class="stat-val c-g" id="stTransit">0</div>
+        <div class="stat-sub">Active shipments</div>
+      </div>
+      <!-- Customs Hold - clickable -->
+      <div class="stat-card" style="--card-accent:var(--accent3);cursor:pointer" onclick="fStatusFromCard('customs')" title="Show customs hold">
+        <div class="stat-label">Customs Hold</div>
+        <div class="stat-val c-o" id="stCustoms">0</div>
+        <div class="stat-sub">Pending clearance</div>
+      </div>
+      <!-- Delayed - clickable -->
+      <div class="stat-card" style="--card-accent:var(--accent5);cursor:pointer" onclick="fStatusFromCard('delayed')" title="Show delayed">
+        <div class="stat-label">Delayed</div>
+        <div class="stat-val c-r" id="stDelayed">0</div>
+        <div class="stat-sub">Need attention</div>
+      </div>
+      <!-- USD Value -->
+      <div class="stat-card" style="--card-accent:#00a878;cursor:pointer" onclick="fStatusFromCard('all')" title="Total USD value">
+        <div class="stat-label" style="display:flex;align-items:center;gap:6px">
+          USD Value
+          <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(0,168,120,.1);color:#00a878;border:1px solid rgba(0,168,120,.2)">$</span>
+        </div>
+        <div class="stat-val" style="color:#00a878" id="stValueUSD">$0</div>
+        <div class="stat-sub">USD orders</div>
+      </div>
+      <!-- RUB Value -->
+      <div class="stat-card" style="--card-accent:#e85d04;cursor:pointer" onclick="fStatusFromCard('all')" title="Total RUB value">
+        <div class="stat-label" style="display:flex;align-items:center;gap:6px">
+          RUB Value
+          <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(232,93,4,.1);color:#e85d04;border:1px solid rgba(232,93,4,.2)">₽</span>
+        </div>
+        <div class="stat-val" style="color:#e85d04" id="stValueRUB">₽0</div>
+        <div class="stat-sub">RUB orders</div>
+      </div>
     </div>
 
     <div class="filters" id="filtersRow">
@@ -1020,13 +1059,25 @@ function renderOrders(){
   const transit=f.filter(o=>o.status==='transit').length;
   const customs=f.filter(o=>o.status==='customs').length;
   const delayed=f.filter(o=>o.status==='delayed').length;
-  const value=f.reduce((s,o)=>s+(o.price||0),0);
+  // Separate USD and RUB values
+  const valueUSD=f.filter(o=>!o.currency||o.currency==='USD').reduce((s,o)=>s+(o.price||0),0);
+  const valueRUB=f.filter(o=>o.currency==='RUB').reduce((s,o)=>s+(o.price||0),0);
+  const valueOther=f.filter(o=>o.currency&&o.currency!=='USD'&&o.currency!=='RUB').reduce((s,o)=>s+(o.price||0),0);
   document.getElementById('ordCount').textContent=f.length;
   animateCounter(document.getElementById('stTotal'),f.length);
   animateCounter(document.getElementById('stTransit'),transit);
   animateCounter(document.getElementById('stCustoms'),customs);
   animateCounter(document.getElementById('stDelayed'),delayed);
-  animateCounter(document.getElementById('stValue'),Math.round(value/1000),'$','K');
+  // USD value
+  const usdEl=document.getElementById('stValueUSD');
+  if(usdEl)animateCounter(usdEl,Math.round(valueUSD/1000),'$','K');
+  // RUB value
+  const rubEl=document.getElementById('stValueRUB');
+  if(rubEl){
+    if(valueRUB>=1000000)animateCounter(rubEl,Math.round(valueRUB/1000000),'₽','M');
+    else if(valueRUB>=1000)animateCounter(rubEl,Math.round(valueRUB/1000),'₽','K');
+    else animateCounter(rubEl,Math.round(valueRUB),'₽','');
+  }
   const tb=document.getElementById('orderTBody');
   if(!f.length){tb.innerHTML=`<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--muted)">No orders found</td></tr>`;return;}
   tb.innerHTML=f.map(o=>`<tr>
@@ -1422,6 +1473,22 @@ function renderPaymentCell(o){
   return html;
 }
 
+function fStatusFromCard(status){
+  // Find the filter chip and click it
+  activeStatus=status;
+  document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+  document.querySelectorAll('.filter-chip').forEach(c=>{
+    if((status==='all'&&c.textContent.trim()==='All')||
+       (status==='transit'&&c.textContent.trim()==='In Transit')||
+       (status==='customs'&&c.textContent.trim()==='Customs')||
+       (status==='delayed'&&c.textContent.trim()==='Delayed'))
+      c.classList.add('active');
+  });
+  renderOrders();
+  // Scroll to table
+  document.getElementById('contentArea').scrollTo({top:0,behavior:'smooth'});
+}
+
 function sortByCol(col){
   if(sortCol===col)sortDir=sortDir==='asc'?'desc':'asc';
   else{sortCol=col;sortDir='asc';}
@@ -1483,6 +1550,7 @@ async function saveOrder(){
     status:document.getElementById('f_status').value,
     delivery:document.getElementById('f_delivery').value||null,
     notes:document.getElementById('f_notes').value,
+    currency:orderItems.length>0?(orderItems[0].currency||'USD'):'USD',
     payment_status:document.getElementById('f_payment_status').value||'pending',
     payment_due_date:document.getElementById('f_payment_due').value||null,
     credit_amount:parseFloat(document.getElementById('f_credit_amount').value)||null,
@@ -1762,8 +1830,13 @@ async function delSup(id){
 async function loadDocs(){
   document.getElementById('docsLoading').style.display='flex';
   document.getElementById('docViewArea').style.display='none';
+  // Force fresh fetch — no cache
   const{data,error}=await sb.from('documents').select('*').order('created_at',{ascending:false});
-  if(error){toast('Error: '+error.message,'err');return;}
+  if(error){toast('Error loading docs: '+error.message,'err');
+    document.getElementById('docsLoading').style.display='none';
+    document.getElementById('docViewArea').style.display='block';
+    return;
+  }
   allDocs=data||[];
   document.getElementById('docsLoading').style.display='none';
   document.getElementById('docViewArea').style.display='block';
@@ -1788,11 +1861,16 @@ function triggerUpload(){document.getElementById('fileInputMain').click();}
 async function handleFileUpload(input){
   const files=Array.from(input.files);
   if(!files.length)return;
+  let uploaded=0;
   for(const file of files){
-    await uploadDocCore(file,docSupId,docSupName,docOrderId,docOrderRef,docSubfolder);
+    const ok=await uploadDocCore(file,docSupId,docSupName,docOrderId,docOrderRef,docSubfolder);
+    if(ok!==false)uploaded++;
   }
   input.value='';
-  await loadDocs();
+  if(uploaded>0){
+    toast(uploaded+' file'+(uploaded>1?'s':'')+' uploaded ✓','ok');
+    await loadDocs();
+  }
 }
 
 function promptNewFolder(){
@@ -2112,20 +2190,26 @@ function renderFileCards(files){
 }
 
 async function uploadDocCore(file,supId,supName,orderId,orderRef,subfolder){
-  // Sanitize filename — remove spaces and special chars for Supabase storage
   const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
   const path=`${supId||'general'}/${orderId||'general'}/${Date.now()}_${safeName}`;
+  toast('Uploading '+file.name+'...','ok');
   const{error:upErr}=await sb.storage.from('documents').upload(path,file);
-  if(upErr){toast('Upload error: '+upErr.message,'err');return;}
-  const{error:dbErr}=await sb.from('documents').insert({
-    name:file.name,type:file.name.split('.').pop().toLowerCase(),
-    meta:subfolder||(file.size/1024).toFixed(0)+' KB',
-    storage_path:path,supplier_id:supId||null,supplier_name:supName||null,
-    order_id:orderId||null,order_ref:orderRef||null,
+  if(upErr){toast('Upload error: '+upErr.message,'err');return false;}
+  // Store file size separately from subfolder
+  const fileSizeKB=(file.size/1024).toFixed(0)+' KB';
+  const{data:inserted,error:dbErr}=await sb.from('documents').insert({
+    name:file.name,
+    type:file.name.split('.').pop().toLowerCase(),
+    meta:subfolder?fileSizeKB+' · '+subfolder:fileSizeKB,
+    storage_path:path,
+    supplier_id:supId||null,
+    supplier_name:supName||null,
+    order_id:orderId?parseInt(orderId):null,
+    order_ref:orderRef||null,
     uploaded_by:currentUser.id
-  });
-  if(dbErr){toast('DB error: '+dbErr.message,'err');return;}
-  toast(file.name+' uploaded ✓','ok');
+  }).select().single();
+  if(dbErr){toast('DB error: '+dbErr.message,'err');return false;}
+  return true;
 }
 
 async function downloadDoc(path,name){
