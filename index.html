@@ -949,10 +949,15 @@ const flags={
   'Qatar':'qa','Bahrain':'bh','Oman':'om','Jordan':'jo','Azerbaijan':'az',
   'Georgia':'ge','Armenia':'am','Tajikistan':'tj','Turkmenistan':'tm','Kyrgyzstan':'kg',
   'Moldova':'md','Lithuania':'lt','Latvia':'lv','Estonia':'ee',
-  'RUSSIA':'ru','CHINA':'cn','UZBEKISTAN':'uz','UKRAINE':'ua','TURKEY':'tr',
-  'GERMANY':'de','SWEDEN':'se','USA':'us','JAPAN':'jp','INDIA':'in',
-  'MALAYSIA':'my','UK':'gb','UAE':'ae','UKRAINE':'ua','SPAIN':'es','ITALY':'it',
 };
+function flagImg(country){
+  if(!country)return '<span style="font-size:16px">🌐</span>';
+  const c=country.charAt(0).toUpperCase()+country.slice(1).toLowerCase();
+  const lookup={'Russia':'ru','China':'cn','Uzbekistan':'uz','Ukraine':'ua','Turkey':'tr','Germany':'de','Sweden':'se','Usa':'us','Japan':'jp','India':'in','Malaysia':'my','Uk':'gb','Uae':'ae','Spain':'es','Italy':'it','France':'fr','Austria':'at','Brazil':'br','South Korea':'kr','Kazakhstan':'kz','Belarus':'by','Poland':'pl','Saudi Arabia':'sa'};
+  const code=flags[country]||flags[c]||lookup[c]||flags[country.toUpperCase()]||null;
+  if(!code)return '<span style="font-size:14px">🌐</span>&nbsp;';
+  return '<img src="https://flagcdn.com/20x15/'+code+'.png" width="20" height="15" style="border-radius:2px;vertical-align:middle;margin-right:5px;flex-shrink:0" alt="'+country+'" onerror="this.replaceWith(document.createTextNode('🌐'))">';
+}
 function flagImg(country){
   const code=flags[country]||flags[(country||'').toUpperCase()];
   if(!code)return '<span style="font-size:16px">🌐</span>';
