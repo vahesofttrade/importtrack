@@ -934,26 +934,30 @@ let docSubfolder=null;
 let docSupId=null, docSupName='', docOrderId=null, docOrderRef='';
 
 const flags={
-  'China':'🇨🇳','UAE':'🇦🇪','Germany':'🇩🇪','Sweden':'🇸🇪','Saudi Arabia':'🇸🇦',
-  'Russia':'🇷🇺','South Africa':'🇿🇦','Malaysia':'🇲🇾','USA':'🇺🇸','Mexico':'🇲🇽',
-  'Austria':'🇦🇹','Japan':'🇯🇵','Turkey':'🇹🇷','Italy':'🇮🇹','France':'🇫🇷',
-  'Brazil':'🇧🇷','India':'🇮🇳','Uzbekistan':'🇺🇿','Ukraine':'🇺🇦','Kazakhstan':'🇰🇿',
-  'Belarus':'🇧🇾','Poland':'🇵🇱','Romania':'🇷🇴','Bulgaria':'🇧🇬','Hungary':'🇭🇺',
-  'Czech Republic':'🇨🇿','Slovakia':'🇸🇰','Croatia':'🇭🇷','Serbia':'🇷🇸','Greece':'🇬🇷',
-  'Spain':'🇪🇸','Portugal':'🇵🇹','Netherlands':'🇳🇱','Belgium':'🇧🇪','Switzerland':'🇨🇭',
-  'Norway':'🇳🇴','Denmark':'🇩🇰','Finland':'🇫🇮','South Korea':'🇰🇷','Taiwan':'🇹🇼',
-  'Vietnam':'🇻🇳','Thailand':'🇹🇭','Indonesia':'🇮🇩','Philippines':'🇵🇭','Bangladesh':'🇧🇩',
-  'Pakistan':'🇵🇰','Egypt':'🇪🇬','Nigeria':'🇳🇬','Ethiopia':'🇪🇹','Kenya':'🇰🇪',
-  'Morocco':'🇲🇦','Algeria':'🇩🇿','Argentina':'🇦🇷','Chile':'🇨🇱','Colombia':'🇨🇴',
-  'Peru':'🇵🇪','Canada':'🇨🇦','Australia':'🇦🇺','New Zealand':'🇳🇿','UK':'🇬🇧',
-  'Ireland':'🇮🇪','Israel':'🇮🇱','Iran':'🇮🇷','Iraq':'🇮🇶','Kuwait':'🇰🇼',
-  'Qatar':'🇶🇦','Bahrain':'🇧🇭','Oman':'🇴🇲','Jordan':'🇯🇴','Lebanon':'🇱🇧',
-  'Syria':'🇸🇾','Azerbaijan':'🇦🇿','Georgia':'🇬🇪','Armenia':'🇦🇲','Tajikistan':'🇹🇯',
-  'Turkmenistan':'🇹🇲','Kyrgyzstan':'🇰🇬','Moldova':'🇲🇩','Lithuania':'🇱🇹',
-  'Latvia':'🇱🇻','Estonia':'🇪🇪','RUSSIA':'🇷🇺','CHINA':'🇨🇳','UZBEKISTAN':'🇺🇿',
-  'UKRAINE':'🇺🇦','TURKEY':'🇹🇷','UAE':'🇦🇪','GERMANY':'🇩🇪','SWEDEN':'🇸🇪',
-  'USA':'🇺🇸','JAPAN':'🇯🇵','INDIA':'🇮🇳','MALAYSIA':'🇲🇾','UK':'🇬🇧',
+  'China':'cn','UAE':'ae','Germany':'de','Sweden':'se','Saudi Arabia':'sa',
+  'Russia':'ru','South Africa':'za','Malaysia':'my','USA':'us','Mexico':'mx',
+  'Austria':'at','Japan':'jp','Turkey':'tr','Italy':'it','France':'fr',
+  'Brazil':'br','India':'in','Uzbekistan':'uz','Ukraine':'ua','Kazakhstan':'kz',
+  'Belarus':'by','Poland':'pl','Romania':'ro','Bulgaria':'bg','Hungary':'hu',
+  'Czech Republic':'cz','Slovakia':'sk','Croatia':'hr','Serbia':'rs','Greece':'gr',
+  'Spain':'es','Portugal':'pt','Netherlands':'nl','Belgium':'be','Switzerland':'ch',
+  'Norway':'no','Denmark':'dk','Finland':'fi','South Korea':'kr','Taiwan':'tw',
+  'Vietnam':'vn','Thailand':'th','Indonesia':'id','Philippines':'ph','Bangladesh':'bd',
+  'Pakistan':'pk','Egypt':'eg','Nigeria':'ng','Kenya':'ke','Morocco':'ma',
+  'Argentina':'ar','Chile':'cl','Colombia':'co','Canada':'ca','Australia':'au',
+  'New Zealand':'nz','UK':'gb','Ireland':'ie','Israel':'il','Kuwait':'kw',
+  'Qatar':'qa','Bahrain':'bh','Oman':'om','Jordan':'jo','Azerbaijan':'az',
+  'Georgia':'ge','Armenia':'am','Tajikistan':'tj','Turkmenistan':'tm','Kyrgyzstan':'kg',
+  'Moldova':'md','Lithuania':'lt','Latvia':'lv','Estonia':'ee',
+  'RUSSIA':'ru','CHINA':'cn','UZBEKISTAN':'uz','UKRAINE':'ua','TURKEY':'tr',
+  'GERMANY':'de','SWEDEN':'se','USA':'us','JAPAN':'jp','INDIA':'in',
+  'MALAYSIA':'my','UK':'gb','UAE':'ae','UKRAINE':'ua','SPAIN':'es','ITALY':'it',
 };
+function flagImg(country){
+  const code=flags[country]||flags[(country||'').toUpperCase()];
+  if(!code)return '<span style="font-size:16px">🌐</span>';
+  return '<img src="https://flagcdn.com/20x15/'+code+'.png" srcset="https://flagcdn.com/40x30/'+code+'.png 2x" width="20" height="15" style="border-radius:2px;vertical-align:middle;margin-right:4px" alt="'+country+'" onerror="this.style.display='none'">';
+}
 const sLabel={transit:'In Transit',customs:'Customs Hold',delivered:'Delivered',ordered:'Ordered',delayed:'Delayed'};
 const stLabel={sea:'Sea',air:'Air',road:'Road'};
 const stIcon={sea:'ti-ship',air:'ti-plane',road:'ti-truck'};
@@ -1120,7 +1124,7 @@ function renderOrders(){
       <div class="pname" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${o.product||''}">${o.has_items&&o.items_count>1?'Multiple products':(o.product||'').split(',')[0]}</div>
       <div class="pcat">${o.has_items&&o.items_count>1?o.items_count+' items':o.category||''}</div>
     </td>
-    <td><span class="cbadge" style="background:transparent;border:none;font-size:13px;gap:4px;padding:2px 4px">${flags[o.country]||'🌐'} <span style="font-size:11px;color:var(--muted)">${o.country||''}</span></span></td>
+    <td><span style="display:inline-flex;align-items:center;font-size:11px;color:var(--muted)">${flagImg(o.country)}${o.country||''}</span></td>
     <td><span class="qty-v">${(o.qty||0).toLocaleString()}</span><span class="qty-u">${o.unit||''}</span></td>
     <td>
       <div style="font-size:13px;font-weight:600;color:var(--accent2)">${o.currency==='RUB'?'₽':'$'}${(o.price||0).toLocaleString()}</div>
@@ -1353,7 +1357,7 @@ function filterSupplierDropdown(){
     const ptLabel={'paid':'Cash','credit':'Credit','partial':'Partial','lc':'LC','tt':'TT','pending':'TBD'}[s.payment_term]||'TBD';
     const ptColor={'paid':'var(--accent2)','credit':'var(--accent4)','partial':'var(--accent3)','lc':'var(--accent)','tt':'var(--accent)'}[s.payment_term]||'var(--muted)';
     return`<div class="sup-opt" onmousedown="selectSupplier('${s.id}')">
-      <div class="sup-opt-name">${flags[s.country]||'🌐'} ${s.name} <span style="font-size:10px;color:var(--muted);font-weight:400">· ${s.category||'—'}</span></div>
+      <div class="sup-opt-name">${flagImg(s.country)} ${s.name} <span style="font-size:10px;color:var(--muted);font-weight:400">· ${s.category||'—'}</span></div>
       <div class="sup-opt-meta" style="display:flex;gap:10px;align-items:center">
         <span>${s.country||''}</span>
         <span>Lead: ${s.lead_time||'—'}d</span>
@@ -1763,7 +1767,7 @@ function renderSuppliers(){
         <div class="sup-avatar" style="background:${col}22;color:${col}">${initials}</div>
         <div style="flex:1;min-width:0">
           <div class="sup-name">${s.name}</div>
-          <div class="sup-country" style="font-size:12px">${flags[s.country]||flags[s.country?.toUpperCase()]||'🌐'} ${s.country||''} · ${s.category||''}</div>
+          <div class="sup-country" style="font-size:12px">${flagImg(s.country)} ${s.country||''} · ${s.category||''}</div>
         </div>
         ${isAdmin?`<div style="display:flex;gap:4px">
           <button class="abtn" onclick="editSup('${s.id}')" title="Edit"><i class="ti ti-edit"></i></button>
@@ -2034,7 +2038,7 @@ function renderRootLevel(area,sortVal){
       <div class="folder-card" onclick="docGoSupplier('${s.id}','${s.name.replace(/'/g,"\'")}')">
         <div class="folder-icon" style="color:${supColors[i%supColors.length]}"><i class="ti ti-folder-filled"></i></div>
         <div class="folder-name">${s.name}</div>
-        <div class="folder-meta">${flags[s.country]||'🌐'} ${s.country||''}</div>
+        <div class="folder-meta">${flagImg(s.country)} ${s.country||''}</div>
         <div class="folder-meta">${countBySup[s.id]||0} file${(countBySup[s.id]||0)!==1?'s':''}</div>
       </div>
     </div>`).join('')}</div>`;
@@ -2424,7 +2428,7 @@ function renderProducts(prods){
             return `<div class="prod-sup-row">
               <div style="width:6px;height:6px;border-radius:50%;background:${catColor};flex-shrink:0"></div>
               <div style="flex:1;min-width:0">
-                <div class="prod-sup-name">${flags[sup?.country]||'🌐'} ${sup?.name||'Unknown'}</div>
+                <div class="prod-sup-name">${flagImg(sup?.country||'')} ${sup?.name||'Unknown'}</div>
                 ${ptLabel?`<div style="font-size:9px;color:${ptColor}">${ptLabel}${sup?.credit_days_default?' · '+sup.credit_days_default+'d':''}</div>`:''}
               </div>
               <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
@@ -2590,7 +2594,7 @@ function filterPmSuppliers(){
   if(!filtered.length){dd.innerHTML=`<div class="sup-opt-empty">No suppliers found</div>`;dd.style.display='block';return;}
   dd.innerHTML=filtered.map(s=>`
     <div class="sup-opt" onmousedown="selectPmSupplier('${s.id}','${s.name.replace(/'/g,"\'")}','${s.country||''}')">
-      <div class="sup-opt-name">${flags[s.country]||'🌐'} ${s.name}</div>
+      <div class="sup-opt-name">${flagImg(s.country)} ${s.name}</div>
       <div class="sup-opt-meta">${s.country||''} · ${s.category||''} · Reliability: ${s.reliability||'—'}%</div>
     </div>`).join('');
   dd.style.display='block';
@@ -2627,7 +2631,7 @@ function renderPmSupplierList(){
   }
   el.innerHTML=pmLinkedSuppliers.map((s,i)=>`
     <div style="display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px">
-      <div style="flex:1;font-size:12px;font-weight:500">${flags[s.country]||'🌐'} ${s.name}</div>
+      <div style="flex:1;font-size:12px;font-weight:500">${flagImg(s.country)} ${s.name}</div>
       <input class="finput" style="width:100px;padding:4px 8px;font-size:11px" type="number" placeholder="Price" value="${s.last_price||''}"
         onchange="pmLinkedSuppliers[${i}].last_price=parseFloat(this.value)||null"/>
       <select class="fsel2" style="padding:4px 8px;font-size:11px;width:70px" onchange="pmLinkedSuppliers[${i}].currency=this.value">
@@ -2844,7 +2848,7 @@ function renderReports(){
   sb.from('suppliers').select('id',{count:'exact'}).then(({count})=>document.getElementById('kpiSup').textContent=count||0);
   const byC={};orders.forEach(o=>{if(o.country)byC[o.country]=(byC[o.country]||0)+(o.price||0);});
   const cE=Object.entries(byC).sort((a,b)=>b[1]-a[1]);const maxC=cE[0]?.[1]||1;
-  document.getElementById('countryBars').innerHTML=cE.map((e,i)=>`<div class="bar-row"><div class="bar-label">${flags[e[0]]||'🌐'} ${e[0]}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.round(e[1]/maxC*100)}%;background:${colors[i%colors.length]}">&nbsp;</div></div><div class="bar-val">$${Math.round(e[1]/1000)}K</div></div>`).join('');
+  document.getElementById('countryBars').innerHTML=cE.map((e,i)=>`<div class="bar-row"><div class="bar-label">${flagImg(e[0])} ${e[0]}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.round(e[1]/maxC*100)}%;background:${colors[i%colors.length]}">&nbsp;</div></div><div class="bar-val">$${Math.round(e[1]/1000)}K</div></div>`).join('');
   const sC={};orders.forEach(o=>{if(o.status)sC[o.status]=(sC[o.status]||0)+1;});
   const donutC={transit:colors[0],customs:colors[3],delivered:colors[1],ordered:colors[2],delayed:'#f04a4a'};
   const cEntries=Object.entries(sC);const tot=cEntries.reduce((s,e)=>s+e[1],0);
