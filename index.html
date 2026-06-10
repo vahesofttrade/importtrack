@@ -73,8 +73,12 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
 .btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-family:var(--fm);font-size:12px;font-weight:500;display:flex;align-items:center;gap:6px;transition:all .2s;box-shadow:var(--shadow-sm)}
 .btn-primary{background:linear-gradient(135deg,#00c48c,#00a878);color:#fff}.btn-primary:hover{opacity:.9;transform:translateY(-1px);box-shadow:var(--shadow)}
 .btn-ghost{background:var(--surface);color:var(--text);border:1px solid var(--border2)}.btn-ghost:hover{background:var(--surface2);border-color:var(--accent)}
-.content{flex:1;overflow-y:auto;padding:24px 28px;background:#f7f3ee}
+.content{flex:1;overflow-y:auto;padding:0;background:#f7f3ee}
+.content-inner{padding:0 28px 28px}
+#view-orders{display:flex;flex-direction:column}
+#view-orders table{flex:1}
 .content::-webkit-scrollbar{width:5px}.content::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+#view-suppliers,#view-documents,#view-reports,#view-ai,#view-users,#view-products,#view-categories{padding:24px 28px}
 
 /* STATS */
 .stats-row{display:flex;gap:12px;padding:16px 24px;border-bottom:1px solid var(--border);background:var(--surface)}
@@ -97,7 +101,7 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
 
 /* TABLE */
 table{width:100%;border-collapse:separate;border-spacing:0}
-th{text-align:left;font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.9px;padding:10px 12px;border-bottom:2px solid var(--border);position:sticky;top:0;background:#f5f0e8;z-index:2;cursor:pointer;user-select:none}
+th{text-align:left;font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.9px;padding:10px 12px;border-bottom:2px solid #e8dcc8;border-top:1px solid #e8dcc8;position:sticky;top:0;background:#f0ebe0;z-index:10;cursor:pointer;user-select:none;white-space:nowrap}
 th:hover{color:var(--accent)}
 th .sort-icon{margin-left:4px;opacity:.4;font-size:10px}
 th.sorted .sort-icon{opacity:1;color:var(--accent)}
@@ -106,7 +110,7 @@ tr{transition:background .15s}
 tr:nth-child(even) td{background:#fdf8f2}
 tr:nth-child(odd) td{background:#fff}
 tr:hover td{background:#fef3e2 !important}
-tr[onclick]:hover td{background:#fce8c8 !important;box-shadow:inset 3px 0 0 #00a878}
+tr[onclick]:hover td{background:#fce8c8 !important}
 .oid{color:var(--accent);font-size:12px;font-weight:500}
 .pname{font-size:12px;color:var(--text);font-weight:500}.pcat{font-size:10px;color:var(--muted);margin-top:2px}
 .cbadge{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);background:var(--surface2);border-radius:4px;padding:3px 8px;border:1px solid var(--border)}
@@ -461,8 +465,8 @@ tr[onclick]:hover td{background:#fce8c8 !important;box-shadow:inset 3px 0 0 #00a
     <div class="content" id="contentArea">
       <!-- ORDERS -->
       <div id="view-orders">
-        <div class="loading" id="ordersLoading"><div class="spin"></div>Loading orders from Supabase...</div>
-        <table id="ordersTable" style="display:none">
+        <div class="loading" id="ordersLoading" style="padding:48px"><div class="spin"></div>Loading orders from Supabase...</div>
+        <table id="ordersTable" style="display:none;width:100%">
           <thead><tr>
             <th onclick="sortByCol('id')">Order ID<span class="sort-icon">↕</span></th>
             <th onclick="sortByCol('supplier_name')">Supplier<span class="sort-icon">↕</span></th>
