@@ -924,6 +924,7 @@ const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
 let currentUser=null, currentProfile=null, isAdmin=false;
 let orders=[], allSuppliers=[], allDocs=[];
 let orderItems=[];
+let allProducts=[], allProductSuppliers=[], allCategories=[];
 let activeStatus='all', activeCountry='', activeShip='', searchTerm='';
 let sortCol='id', sortDir='desc';
 let editOrderId=null, editSupId=null;
@@ -2317,7 +2318,6 @@ async function renameFolder(id,oldName){
 }
 
 // ── PRODUCTS ──
-let allProducts=[], allProductSuppliers=[], allCategories=[];
 let pmLinkedSuppliers=[], editProductId=null;
 let activeCatFilter='all';
 let cmFields=[], editCatId=null;
