@@ -952,12 +952,26 @@ const flags={
   'Moldova':'md','Lithuania':'lt','Latvia':'lv','Estonia':'ee',
 };
 function flagImg(country){
-  if(!country)return '<span style="font-size:16px">🌐</span>';
-  const c=country.charAt(0).toUpperCase()+country.slice(1).toLowerCase();
-  const lookup={'Russia':'ru','China':'cn','Uzbekistan':'uz','Ukraine':'ua','Turkey':'tr','Germany':'de','Sweden':'se','Usa':'us','Japan':'jp','India':'in','Malaysia':'my','Uk':'gb','Uae':'ae','Spain':'es','Italy':'it','France':'fr','Austria':'at','Brazil':'br','South Korea':'kr','Kazakhstan':'kz','Belarus':'by','Poland':'pl','Saudi Arabia':'sa'};
-  const code=flags[country]||flags[c]||lookup[c]||flags[country.toUpperCase()]||null;
-  if(!code)return '<span style="font-size:14px">🌐</span>&nbsp;';
-  return '<img src="https://flagcdn.com/20x15/'+code+'.png" width="20" height="15" style="border-radius:2px;vertical-align:middle;margin-right:5px;flex-shrink:0" alt="'+country+'" onerror="this.replaceWith(document.createTextNode('🌐'))">';
+  if(!country)return '<span style="font-size:13px;margin-right:4px">&#x1F310;</span>';
+  const lookup={Russia:"ru",China:"cn",Uzbekistan:"uz",Ukraine:"ua",Turkey:"tr",
+    Germany:"de",Sweden:"se",USA:"us",Japan:"jp",India:"in",Malaysia:"my",UK:"gb",
+    UAE:"ae",Spain:"es",Italy:"it",France:"fr",Austria:"at",Brazil:"br",
+    Kazakhstan:"kz",Belarus:"by",Poland:"pl",Romania:"ro",Australia:"au",
+    Canada:"ca","Saudi Arabia":"sa","South Korea":"kr","New Zealand":"nz",
+    Netherlands:"nl",Belgium:"be",Switzerland:"ch",Norway:"no",Denmark:"dk",
+    Finland:"fi",Vietnam:"vn",Thailand:"th",Indonesia:"id",Philippines:"ph",
+    Egypt:"eg",Nigeria:"ng",Kenya:"ke",Morocco:"ma",Argentina:"ar",Chile:"cl",
+    Colombia:"co",Ireland:"ie",Israel:"il",Kuwait:"kw",Qatar:"qa",Jordan:"jo",
+    Azerbaijan:"az",Georgia:"ge",Armenia:"am",Lithuania:"lt",Latvia:"lv",Estonia:"ee"};
+  const c=country.trim();
+  const code=flags[c]||lookup[c]||lookup[c.charAt(0).toUpperCase()+c.slice(1).toLowerCase()]||null;
+  if(!code)return '<span style="font-size:13px;margin-right:4px">&#x1F310;</span>';
+  const img=document.createElement("img");
+  img.src="https://flagcdn.com/20x15/"+code+".png";
+  img.width=20;img.height=15;
+  img.style.cssText="border-radius:2px;vertical-align:middle;margin-right:5px;flex-shrink:0";
+  img.alt=c;
+  return img.outerHTML;
 }
 
 const sLabel={transit:'In Transit',customs:'Customs Hold',delivered:'Delivered',ordered:'Ordered',delayed:'Delayed'};
@@ -2810,7 +2824,7 @@ function exportProducts(){
     const cat=getCatById(p.category_id);
     return[p.name,cat?.name||p.category||'',p.unit||'',p.hs_code||'',p.description||'',supNames,best];
   });
-  const csv=[h,...rows].map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+    const csv=[h,...rows].map(r=>r.map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(',')).join('\n');
   const a=document.createElement('a');
   a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
   a.download='products_'+new Date().toISOString().slice(0,10)+'.csv';
@@ -2945,7 +2959,7 @@ function exportCSV(){
   const f=getSortedFiltered();
   const h=['Order ID','Product','Category','Supplier','Country','Qty','Unit','Price USD','Shipment','Ship Type','Status','Delivery','Notes'];
   const rows=f.map(o=>['ORD-'+String(o.id).padStart(4,'0'),o.product,o.category,o.supplier_name,o.country,o.qty,o.unit,o.price,o.shipnum,stLabel[o.shiptype]||o.shiptype,sLabel[o.status]||o.status,o.delivery,o.notes]);
-  const csv=[h,...rows].map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+    const csv=[h,...rows].map(r=>r.map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(',')).join('\n');
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='importtrack_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
 }
 
