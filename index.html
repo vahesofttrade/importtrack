@@ -933,7 +933,27 @@ let docLevel='root'; // root | supplier | subfolder | order
 let docSubfolder=null;
 let docSupId=null, docSupName='', docOrderId=null, docOrderRef='';
 
-const flags={'China':'🇨🇳','UAE':'🇦🇪','Germany':'🇩🇪','Sweden':'🇸🇪','Saudi Arabia':'🇸🇦','Russia':'🇷🇺','South Africa':'🇿🇦','Malaysia':'🇲🇾','USA':'🇺🇸','Mexico':'🇲🇽','Austria':'🇦🇹','Japan':'🇯🇵','Turkey':'🇹🇷','Italy':'🇮🇹','France':'🇫🇷','Brazil':'🇧🇷','India':'🇮🇳'};
+const flags={
+  'China':'🇨🇳','UAE':'🇦🇪','Germany':'🇩🇪','Sweden':'🇸🇪','Saudi Arabia':'🇸🇦',
+  'Russia':'🇷🇺','South Africa':'🇿🇦','Malaysia':'🇲🇾','USA':'🇺🇸','Mexico':'🇲🇽',
+  'Austria':'🇦🇹','Japan':'🇯🇵','Turkey':'🇹🇷','Italy':'🇮🇹','France':'🇫🇷',
+  'Brazil':'🇧🇷','India':'🇮🇳','Uzbekistan':'🇺🇿','Ukraine':'🇺🇦','Kazakhstan':'🇰🇿',
+  'Belarus':'🇧🇾','Poland':'🇵🇱','Romania':'🇷🇴','Bulgaria':'🇧🇬','Hungary':'🇭🇺',
+  'Czech Republic':'🇨🇿','Slovakia':'🇸🇰','Croatia':'🇭🇷','Serbia':'🇷🇸','Greece':'🇬🇷',
+  'Spain':'🇪🇸','Portugal':'🇵🇹','Netherlands':'🇳🇱','Belgium':'🇧🇪','Switzerland':'🇨🇭',
+  'Norway':'🇳🇴','Denmark':'🇩🇰','Finland':'🇫🇮','South Korea':'🇰🇷','Taiwan':'🇹🇼',
+  'Vietnam':'🇻🇳','Thailand':'🇹🇭','Indonesia':'🇮🇩','Philippines':'🇵🇭','Bangladesh':'🇧🇩',
+  'Pakistan':'🇵🇰','Egypt':'🇪🇬','Nigeria':'🇳🇬','Ethiopia':'🇪🇹','Kenya':'🇰🇪',
+  'Morocco':'🇲🇦','Algeria':'🇩🇿','Argentina':'🇦🇷','Chile':'🇨🇱','Colombia':'🇨🇴',
+  'Peru':'🇵🇪','Canada':'🇨🇦','Australia':'🇦🇺','New Zealand':'🇳🇿','UK':'🇬🇧',
+  'Ireland':'🇮🇪','Israel':'🇮🇱','Iran':'🇮🇷','Iraq':'🇮🇶','Kuwait':'🇰🇼',
+  'Qatar':'🇶🇦','Bahrain':'🇧🇭','Oman':'🇴🇲','Jordan':'🇯🇴','Lebanon':'🇱🇧',
+  'Syria':'🇸🇾','Azerbaijan':'🇦🇿','Georgia':'🇬🇪','Armenia':'🇦🇲','Tajikistan':'🇹🇯',
+  'Turkmenistan':'🇹🇲','Kyrgyzstan':'🇰🇬','Moldova':'🇲🇩','Lithuania':'🇱🇹',
+  'Latvia':'🇱🇻','Estonia':'🇪🇪','RUSSIA':'🇷🇺','CHINA':'🇨🇳','UZBEKISTAN':'🇺🇿',
+  'UKRAINE':'🇺🇦','TURKEY':'🇹🇷','UAE':'🇦🇪','GERMANY':'🇩🇪','SWEDEN':'🇸🇪',
+  'USA':'🇺🇸','JAPAN':'🇯🇵','INDIA':'🇮🇳','MALAYSIA':'🇲🇾','UK':'🇬🇧',
+};
 const sLabel={transit:'In Transit',customs:'Customs Hold',delivered:'Delivered',ordered:'Ordered',delayed:'Delayed'};
 const stLabel={sea:'Sea',air:'Air',road:'Road'};
 const stIcon={sea:'ti-ship',air:'ti-plane',road:'ti-truck'};
@@ -1100,7 +1120,7 @@ function renderOrders(){
       <div class="pname" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${o.product||''}">${o.has_items&&o.items_count>1?'Multiple products':(o.product||'').split(',')[0]}</div>
       <div class="pcat">${o.has_items&&o.items_count>1?o.items_count+' items':o.category||''}</div>
     </td>
-    <td><span class="cbadge">${flags[o.country]||'🌐'} ${o.country||''}</span></td>
+    <td><span class="cbadge" style="background:transparent;border:none;font-size:13px;gap:4px;padding:2px 4px">${flags[o.country]||'🌐'} <span style="font-size:11px;color:var(--muted)">${o.country||''}</span></span></td>
     <td><span class="qty-v">${(o.qty||0).toLocaleString()}</span><span class="qty-u">${o.unit||''}</span></td>
     <td>
       <div style="font-size:13px;font-weight:600;color:var(--accent2)">${o.currency==='RUB'?'₽':'$'}${(o.price||0).toLocaleString()}</div>
@@ -1743,7 +1763,7 @@ function renderSuppliers(){
         <div class="sup-avatar" style="background:${col}22;color:${col}">${initials}</div>
         <div style="flex:1;min-width:0">
           <div class="sup-name">${s.name}</div>
-          <div class="sup-country">${flags[s.country]||'🌐'} ${s.country||''} · ${s.category||''}</div>
+          <div class="sup-country" style="font-size:12px">${flags[s.country]||flags[s.country?.toUpperCase()]||'🌐'} ${s.country||''} · ${s.category||''}</div>
         </div>
         ${isAdmin?`<div style="display:flex;gap:4px">
           <button class="abtn" onclick="editSup('${s.id}')" title="Edit"><i class="ti ti-edit"></i></button>
